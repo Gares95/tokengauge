@@ -1,0 +1,23 @@
+{
+  "initialize": {
+    "userAgent": "tokengauge/0.137.0 (codex-cli; x86_64-unknown-linux-gnu)",
+    "codexHome": "/home/dev/.codex",
+    "requestUserAgent": "codex_cli_rs/0.137.0",
+    "platform": "linux"
+  },
+  "rateLimits": {
+    "limitId": "codex",
+    "primary": { "usedPercent": 6, "windowDurationMins": 300, "resetsAt": 1781212269 },
+    "secondary": { "usedPercent": 1, "windowDurationMins": 10080, "resetsAt": 1781799069 },
+    "credits": { "hasCredits": false, "unlimited": false, "balance": "0" },
+    "planType": "plus",
+    "rateLimitReachedType": null
+  },
+  "rateLimitsByLimitId": {
+    "codex": {
+      "limitId": "codex",
+      "primary": { "usedPercent": 6, "windowDurationMins": 300, "resetsAt": 1781212269 },
+      "secondary": { "usedPercent": 1, "windowDurationMins": 10080, "resetsAt": 1781799069 }
+    }
+  }
+}
