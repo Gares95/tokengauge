@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest an idea or improvement for TokenGauge
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement.
+
+        **Before you post: protect your privacy.** Please **do not paste** secrets, API keys, raw filesystem paths, raw logs, prompts, completions, transcripts, terminal output, native status or probe payloads, account IDs, session IDs, or emails. Use placeholders for anything sensitive.
+
+        Please keep requests aligned with TokenGauge's non-negotiables: it is **native-only** and **privacy-first**. It does not read conversation logs, sends no telemetry, and makes no outbound network calls by default.
+  - type: checkboxes
+    id: privacy-ack
+    attributes:
+      label: Privacy acknowledgement
+      options:
+        - label: This request contains no secrets, tokens, raw paths, logs, prompts/completions, transcripts, terminal output, native/probe payloads, account/session IDs, or emails.
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      placeholder: I'm trying to ... but today ... .
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      placeholder: It would help if TokenGauge ... .
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
