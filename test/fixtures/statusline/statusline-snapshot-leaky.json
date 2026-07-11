@@ -1,0 +1,21 @@
+{
+  "model": { "id": "claude-opus-4" },
+  "cost": { "total_cost_usd": 4.27 },
+  "context_window": {
+    "context_window_size": 200000,
+    "used_percentage": 38.5
+  },
+  "rate_limits": {
+    "five_hour": { "used_percentage": 42, "resets_at": 1781110800 }
+  },
+  "session_id": "11111111-2222-3333-4444-555555555555",
+  "cwd": "__SENTINEL_SLOT_PATH__",
+  "workspace": {
+    "current_dir": "__SENTINEL_SLOT_PATH__",
+    "repo": {
+      "owner": "acme-corp",
+      "remote": "__SENTINEL_SLOT_GITREMOTE__"
+    }
+  },
+  "api_key": "__SENTINEL_SLOT_APIKEY__"
+}
