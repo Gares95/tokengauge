@@ -214,7 +214,7 @@
     "eslint": "9.39.4",
     "mocha": "11.7.6",
     "typescript": "5.9.3",
-    "vite": "5.4.21",
+    "vite": "8.1.4",
     "yauzl": "3.2.0"
   },
   "dependencies": {
