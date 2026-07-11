@@ -1,0 +1,225 @@
+{
+  "name": "tokengauge-vscode",
+  "displayName": "TokenGauge",
+  "description": "Native-only status cockpit for Claude Code and experimental Codex usage windows exposed by local tools",
+  "version": "0.0.1",
+  "publisher": "tokengauge",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "vscode-extension",
+    "token-usage",
+    "claude-code",
+    "codex",
+    "ai-tools",
+    "developer-tools",
+    "statusline",
+    "privacy-first"
+  ],
+  "icon": "resources/tokengauge-icon.png",
+  "license": "Apache-2.0",
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gares95/tokengauge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Gares95/tokengauge/issues"
+  },
+  "homepage": "https://github.com/Gares95/tokengauge#readme",
+  "contributes": {
+    "commands": [
+      {
+        "command": "tokenGauge.openPrivacyReport",
+        "title": "Privacy & Data Report",
+        "category": "TokenGauge"
+      },
+      {
+        "command": "tokenGauge.openCockpit",
+        "title": "Open Cockpit",
+        "category": "TokenGauge"
+      },
+      {
+        "command": "tokenGauge.configureCockpit",
+        "title": "Configure Cockpit",
+        "category": "TokenGauge"
+      },
+      {
+        "command": "tokenGauge.refreshNativeStatus",
+        "title": "Refresh Native Status (Cockpit)",
+        "category": "TokenGauge"
+      },
+      {
+        "command": "tokenGauge.cockpitDiagnostics",
+        "title": "Cockpit Diagnostics",
+        "category": "TokenGauge"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "tokenGauge",
+          "title": "TokenGauge",
+          "icon": "resources/tokengauge-view.svg"
+        }
+      ]
+    },
+    "views": {
+      "tokenGauge": [
+        {
+          "type": "webview",
+          "id": "tokenGauge.views.cockpit",
+          "name": "TokenGauge",
+          "contextualTitle": "TokenGauge"
+        }
+      ]
+    },
+    "configuration": [
+      {
+        "title": "TokenGauge › Claude",
+        "order": 1,
+        "properties": {
+          "tokenGauge.claude.statuslineSnapshotPath": {
+            "type": "string",
+            "default": "",
+            "scope": "window",
+            "order": 1,
+            "title": "Statusline Snapshot Path",
+            "markdownDescription": "Cockpit (native): Claude statusLine snapshot path: the JSON file, or a per-session directory (recommended for multiple sessions), your own statusLine writer produces. Set Claude Code `statusLine.command` to the writer command, but set this TokenGauge value to the snapshot output, not the writer file. TokenGauge reads only this exact path (no `.claude` scanning, no log parsing). In WSL/Remote/Dev Container windows, configure this in Remote or Workspace settings for the extension host; local User settings may not affect that window. Step-by-step setup: see the README \"Claude Code setup\" section."
+          },
+          "tokenGauge.display.cards.claude.visible": {
+            "type": "boolean",
+            "default": true,
+            "scope": "window",
+            "order": 2,
+            "title": "Card Visible",
+            "markdownDescription": "Display: Show the Claude card in the TokenGauge cockpit and status bar summaries. Default: `true`. When hidden, this only changes visibility; it does not configure Claude, delete data, or change the configured snapshot path."
+          }
+        }
+      },
+      {
+        "title": "TokenGauge › Codex",
+        "order": 2,
+        "properties": {
+          "tokenGauge.providers.codex.nativeStatusProbe": {
+            "type": "boolean",
+            "default": false,
+            "scope": "window",
+            "order": 1,
+            "title": "Native Status Probe",
+            "markdownDescription": "Cockpit (native): Codex native rate-limit status probe (explicit opt-in, experimental). **Default: `false`** (off). No `codex` process is ever spawned and the Codex card shows 'probe disabled'. **When on and the Codex card is visible**, both the manual **TokenGauge: Refresh Native Status** command and background polling resolve the local `codex` executable through sanitized local resolvers and spawn a short-lived `codex app-server` process. This version recognizes the tested 5-hour and 7-day account-window response shape; different buckets show unavailable/unsupported instead of guessed values. The spawned codex process may contact its own OpenAI backend using its own existing Codex/OpenAI login/session. TokenGauge itself makes no network call, asks for no API keys, never reads codex credentials, never displays the resolved executable path, and does not show Codex cost. Hiding the Codex card stops probes without changing this setting."
+          },
+          "tokenGauge.display.cards.codex.visible": {
+            "type": "boolean",
+            "default": true,
+            "scope": "window",
+            "order": 2,
+            "title": "Card Visible",
+            "markdownDescription": "Display: Show the Codex card in the TokenGauge cockpit and status bar summaries. Default: `true`. When hidden, TokenGauge omits the card and stops Codex app-server probes. This does not configure Codex, delete data, or change `tokenGauge.providers.codex.nativeStatusProbe`."
+          }
+        }
+      },
+      {
+        "title": "TokenGauge › Display",
+        "order": 3,
+        "properties": {
+          "tokenGauge.display.showTechnicalDetails": {
+            "type": "boolean",
+            "default": false,
+            "scope": "window",
+            "order": 72,
+            "title": "Show Technical Details",
+            "markdownDescription": "Display: Show the context-window meter and provider-reported cost on cockpit cards. Off by default for a simpler card; important warnings remain visible either way."
+          }
+        }
+      },
+      {
+        "title": "TokenGauge › Advanced / Polling",
+        "order": 4,
+        "properties": {
+          "tokenGauge.pollIntervalSeconds": {
+            "type": "integer",
+            "default": 15,
+            "minimum": 10,
+            "maximum": 15,
+            "scope": "window",
+            "order": 80,
+            "title": "Poll Interval Seconds",
+            "markdownDescription": "Cockpit (native): Automatic cockpit check interval (seconds): how often TokenGauge automatically checks native status. It re-checks available native status every N seconds and re-renders the cockpit; the supported range is 10 to 15 seconds, and these checks are local file reads only. This does **not** force provider/native probes to run faster than their provider-safe floor: the Codex native probe waits at least 60 seconds between background probes regardless of this value, so a shorter interval checks the view more often without spawning more probes. Default: 15."
+          }
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "lint": "biome check .",
+    "lint:types": "node --max-old-space-size=2048 ./node_modules/eslint/bin/eslint.js \"src/**/*.ts\" \"test/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "check:pinning": "node tools/check-pinning.mjs",
+    "check:release-docs": "node tools/check-release-docs.mjs",
+    "check:release-workflow": "node tools/check-release-workflow.mjs",
+    "check:vsix-reproducibility": "node tools/check-vsix-reproducibility.mjs",
+    "check:performance": "node tools/check-performance-ci.mjs",
+    "check:stale-compiled-tests": "node tools/check-stale-compiled-tests.mjs",
+    "compile-tests": "tsc -p tsconfig.test.json",
+    "pretest": "npm run compile-tests && npm run build",
+    "clean": "node -e \"const fs=require('node:fs'); for (const d of ['dist','out']) { fs.rmSync(d, { recursive: true, force: true }); } for (const f of fs.readdirSync('.')) { if (f.endsWith('.vsix')) fs.unlinkSync(f); }\"",
+    "build": "node esbuild.config.mjs && npm run build:webview",
+    "build:webview": "node tools/build-webview.mjs",
+    "build:production": "node tools/build-production.mjs && npm run build:webview",
+    "watch": "node esbuild.config.mjs --watch",
+    "test:unit": "npm run check:stale-compiled-tests && vscode-test --label unit",
+    "test:integration": "npm run check:stale-compiled-tests && vscode-test --label integration",
+    "test:privacy": "npm run check:stale-compiled-tests && vscode-test --label privacy",
+    "test": "npm run test:unit && npm run test:privacy && npm run test:integration",
+    "test:audit-vsix": "node tools/audit-vsix.test.mjs",
+    "test:privacy-fast": "node tools/check-privacy-fast.test.mjs",
+    "check:secretstorage-boundary": "node tools/check-secretstorage-boundary.mjs",
+    "check:no-network-default": "node tools/check-no-network-default.mjs",
+    "check:no-stray-ui-surfaces": "node tools/check-no-stray-ui-surfaces.mjs",
+    "check:webview-csp": "node tools/check-webview-csp.mjs",
+    "check:activation-compat": "node tools/check-activation-compat.mjs",
+    "check:no-log-ingestion": "node tools/check-no-log-ingestion.mjs",
+    "check:no-old-usage-model": "node tools/check-no-old-usage-model.mjs",
+    "check:no-synthetic-estimation": "node tools/check-no-synthetic-estimation.mjs",
+    "check:no-threshold-notifications": "node tools/check-no-threshold-notifications.mjs",
+    "package:vsix": "npm run clean && npm run build:production && node tools/package-vsix.mjs",
+    "audit:vsix": "node tools/audit-vsix-cli.mjs",
+    "verify:vsix": "npm run package:vsix && npm run audit:vsix",
+    "check": "npm run format:check && npm run lint && npm run lint:types && npm run typecheck && npm run check:pinning && node tools/check-privacy-fast.mjs && npm run check:secretstorage-boundary && npm run check:no-network-default && node tools/check-no-network-default.test.mjs && npm run check:no-stray-ui-surfaces && npm run check:no-log-ingestion && npm run check:no-old-usage-model && npm run check:no-synthetic-estimation && npm run check:no-threshold-notifications && npm run check:webview-csp && npm run check:release-docs && node tools/check-release-docs.test.mjs && npm run check:release-workflow && node tools/check-release-workflow.test.mjs && node tools/check-vsix-reproducibility.test.mjs && npm run test:audit-vsix && npm run test:privacy-fast && npm test && npm run check:activation-compat && npm run check:performance"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.16",
+    "@preact/preset-vite": "2.10.5",
+    "@types/mocha": "10.0.10",
+    "@types/node": "22.10.0",
+    "@types/vscode": "1.95.0",
+    "@typescript-eslint/eslint-plugin": "8.60.1",
+    "@typescript-eslint/parser": "8.60.1",
+    "@vscode/test-cli": "0.0.12",
+    "@vscode/test-electron": "2.5.2",
+    "@vscode/vsce": "3.9.1",
+    "archiver": "7.0.1",
+    "esbuild": "0.28.0",
+    "eslint": "9.39.4",
+    "mocha": "11.7.6",
+    "typescript": "5.9.3",
+    "vite": "5.4.21",
+    "yauzl": "3.2.0"
+  },
+  "dependencies": {
+    "chokidar": "4.0.3",
+    "preact": "10.29.2",
+    "zod": "4.4.3"
+  }
+}
