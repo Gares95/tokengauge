@@ -1,0 +1,97 @@
+# Verification workflow.
+#
+# Default permissions are read-only; the workflow has no credentialed release
+# path and uses only pull_request/push events so fork PRs never receive secrets.
+# All run steps use Git Bash on every runner for consistent cross-platform syntax.
+#
+# This job runs the SAME canonical gate as local development -- `npm run check`
+# -- on every OS. That keeps CI and local in lockstep: the privacy and security
+# guards (secretstorage boundary, no-network-default + no-server,
+# no-stray-ui-surfaces, webview-csp), the removed-subsystem regression guards,
+# activation-compat, CSP, release-docs/workflow guards, guard self-tests, and the
+# full unit/privacy/integration suites are all enforced identically in CI and
+# locally -- closing the CI/local drift where several high-value guards only ran
+# locally. `npm run check` launches @vscode/test-cli, which needs a display on
+# Linux, so the Linux runner wraps the whole command in `xvfb-run`. npm audit and
+# the packaged-VSIX content audit are kept as explicit steps because they are not
+# part of `npm run check`. CI does not upload VSIX artifacts before release
+# automation exists.
+
+name: Verify
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4.1.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Runtime dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Runtime dependency audit report
+        run: npm audit --omit=dev
+        continue-on-error: true
+
+      # Canonical gate -- identical to the local `npm run check`. Covers format,
+      # lint, type-aware lint, typecheck, pinning, privacy fast-sweep,
+      # secretstorage-boundary, no-network-default + no-server,
+      # no-stray-ui-surfaces, no-log-ingestion, no-old-usage-model,
+      # no-synthetic-estimation, no-threshold-notifications, webview-csp,
+      # release-docs, release-workflow, the guard self-tests, the audit-vsix
+      # regression tests, the unit/privacy/integration suites, activation-compat,
+      # and the packaged performance gate. Each guard prints its own `OK: ...`
+      # line, so the formerly CI-missing guards are visible in this step's log.
+      # @vscode/test-cli needs a display on Linux, so wrap the whole run in xvfb.
+      - name: Canonical check (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run check
+
+      - name: Canonical check (non-Linux)
+        if: runner.os != 'Linux'
+        run: npm run check
+
+      - name: Package VSIX
+        run: npm run package:vsix 2>&1 | tee vsce-output.txt
+
+      - name: Fail on VSIX packager warnings
+        run: |
+          if grep -E "^[[:space:]]*WARNING" vsce-output.txt; then
+            echo "VSIX packager emitted warnings."
+            exit 1
+          fi
+
+      - name: Audit VSIX content
+        run: npm run audit:vsix
