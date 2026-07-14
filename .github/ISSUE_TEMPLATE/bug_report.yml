@@ -1,0 +1,85 @@
+name: Bug report
+description: Report a problem with the TokenGauge VS Code extension
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report.
+
+        **Before you post: protect your privacy.** TokenGauge is privacy-first, and so are its issues. Please **do not paste** any of the following:
+
+        - secrets, API keys, or tokens
+        - raw filesystem paths
+        - raw logs or log files
+        - prompts, completions, or transcripts
+        - terminal output
+        - native status or probe payloads (raw statusLine snapshots, app-server responses, etc.)
+        - account IDs, session IDs, or emails
+
+        Replace anything sensitive with placeholders. Maintainers will never ask for the items above, and TokenGauge's own diagnostics are already redacted.
+  - type: checkboxes
+    id: privacy-ack
+    attributes:
+      label: Privacy acknowledgement
+      options:
+        - label: I have removed secrets, tokens, raw paths, logs, prompts/completions, transcripts, terminal output, native/probe payloads, account/session IDs, and emails from this report.
+          required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+      placeholder: When I ..., TokenGauge ... . I expected ... .
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: extension-version
+    attributes:
+      label: TokenGauge version
+      placeholder: e.g. 0.0.1
+    validations:
+      required: true
+  - type: input
+    id: vscode-version
+    attributes:
+      label: VS Code version
+      placeholder: e.g. 1.95.0
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: e.g. macOS 14, Windows 11, Ubuntu 24.04, WSL2
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Which agent/provider is involved?
+      options:
+        - Claude Code
+        - Codex
+        - Both
+        - Not agent-specific
+    validations:
+      required: false
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Redacted diagnostics (optional)
+      description: Output from **TokenGauge: Cockpit Diagnostics** is already redacted (statuses, rule IDs, source kinds). Double-check it for anything sensitive before pasting.
+    validations:
+      required: false

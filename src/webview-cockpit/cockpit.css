@@ -1,0 +1,757 @@
+/* cockpit.css — battery-meter cockpit.
+ * Colors come from classes against CSS custom properties — never inline style
+ * attributes (the CSP nonce-gates styles and blocks inline ones). No fonts, no
+ * images, no remote asset references. Surfaces/text/borders use --vscode-*
+ * theme tokens; agent brand + live/warn/crit are fixed --tg-* tokens. */
+
+:root {
+  color-scheme: light dark;
+  font-family: var(--vscode-font-family), system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+  font-variant-numeric: tabular-nums;
+
+  /* Built-in default agent colors — light theme defaults, fixed across
+     themes so Claude/Codex stay recognisable. */
+  --tg-claude: #c15f3c; /* warm terracotta/amber */
+  --tg-codex: #5b8db8; /* calm unsaturated blue */
+  --tg-other: var(--vscode-charts-purple);
+  /* Fixed dark text that reads on the brand monogram/cap in every theme. */
+  --tg-on-brand: #16110d;
+
+  /* Status tokens. live/warn/crit map to theme-tuned VS Code tokens (AA-safe
+     in light AND dark); track + neutral follow the theme. */
+  --tg-live: var(--vscode-charts-green, #4ec9a0);
+  --tg-warn: var(--vscode-editorWarning-foreground, var(--vscode-charts-yellow));
+  --tg-crit: var(--vscode-editorError-foreground, var(--vscode-charts-red));
+  --tg-neutral: var(--vscode-descriptionForeground);
+  --tg-track: var(--vscode-widget-border, var(--vscode-editorWidget-border));
+  --tg-supported-floor: 320px;
+  --tg-content-max: 720px;
+}
+
+body.vscode-dark {
+  --tg-claude: #d97757;
+  --tg-codex: #7aa7cc;
+}
+
+body.vscode-high-contrast,
+body.vscode-high-contrast-light {
+  --tg-claude: var(--vscode-charts-orange);
+  --tg-codex: var(--vscode-charts-blue);
+  --tg-other: var(--vscode-foreground);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 280px;
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+}
+
+button {
+  /* An explicit pointer cursor so buttons read as interactive. */
+  cursor: pointer;
+  min-height: 32px;
+  min-width: 32px;
+  padding: 4px 12px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 4px;
+  font: inherit;
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+}
+
+button:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+/* The manual-refresh feedback indicator ("Checking now…"). */
+.cockpit-status {
+  color: var(--vscode-descriptionForeground);
+  font-variant-numeric: tabular-nums;
+}
+
+.cockpit-shell {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  width: min(100%, var(--tg-content-max));
+  /* The 320px design floor is unconditional: card internals never re-flow to
+   * fit a narrower viewport — the webview scrolls horizontally instead. A
+   * breakpoint-scoped floor left a 320–360 band where internals compressed
+   * while the floor had not yet kicked in. */
+  min-width: var(--tg-supported-floor);
+  margin: 0 auto;
+  background: var(--vscode-editor-background);
+}
+
+.cockpit-refresh {
+  /* Never shrink into adjacent text — keeps the button usable at any width. */
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* Secondary (Refresh) button — calmer than the primary CTA. */
+.tg-btn {
+  font-size: 11px;
+  background: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+  color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+}
+
+.tg-btn:hover {
+  background: var(--vscode-button-secondaryHoverBackground, var(--vscode-button-hoverBackground));
+}
+
+/* ============================ SUMMARY + ACTIONS ===================== */
+.tg-summary {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.tg-summary__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tg-summary__status {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tg-summary__line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.tg-summary__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.tg-summary__dot--live {
+  background: var(--tg-live);
+}
+.tg-summary__dot--warn {
+  background: var(--tg-warn);
+}
+.tg-summary__dot--muted {
+  background: var(--tg-neutral);
+}
+.tg-summary__dot--crit {
+  background: var(--tg-crit);
+}
+
+.tg-summary__text {
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  min-width: 0;
+}
+
+.tg-summary__sub {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  font-variant-numeric: tabular-nums;
+}
+
+.tg-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  min-width: 0;
+}
+
+.tg-link {
+  color: var(--vscode-textLink-foreground);
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  min-height: 24px;
+  min-width: 0;
+  font-family: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.tg-link:hover {
+  text-decoration: underline;
+  background: none;
+}
+
+.tg-link:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ============================ AGENT CARD ============================ */
+.tg-stack {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.tg-card {
+  background: var(--vscode-editorWidget-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 10px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.tg-card[data-agent="claude"] {
+  --tg-accent: var(--tg-claude);
+}
+.tg-card[data-agent="codex"] {
+  --tg-accent: var(--tg-codex);
+}
+.tg-card[data-agent="other"] {
+  --tg-accent: var(--tg-other);
+}
+
+.tg-card__cap {
+  height: 3px;
+  background: var(--tg-accent, var(--vscode-panel-border));
+}
+
+.tg-card[data-edge="crit"] .tg-card__cap {
+  background: var(--tg-crit);
+}
+.tg-card[data-edge="neutral"] .tg-card__cap {
+  background: var(--vscode-panel-border);
+}
+
+.tg-card__body {
+  padding: 16px;
+  min-width: 0;
+}
+
+.tg-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin-bottom: 16px;
+  min-width: 0;
+}
+
+.tg-monogram {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--tg-accent, var(--tg-claude));
+  color: var(--tg-on-brand);
+  font-size: 15px;
+  font-weight: 700;
+  border: 1px solid var(--vscode-contrastBorder, transparent);
+}
+
+.tg-monogram[data-agent="claude"] {
+  --tg-accent: var(--tg-claude);
+}
+.tg-monogram[data-agent="codex"] {
+  --tg-accent: var(--tg-codex);
+}
+
+/* The art badge variant carries its own rounded-square + fill via the inline
+   SVG, so the container drops its coloured background/border to avoid a double
+   square. The SVG fills the 30x30 box. */
+.tg-monogram--art {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.tg-monogram--art .tg-provider-badge__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.tg-card__id {
+  flex: 1;
+  min-width: 0;
+}
+
+.tg-card__name {
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.tg-card__model {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- primary 5h gauge ---- */
+.tg-gauge__labelrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 9px;
+}
+
+.tg-gauge__label {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--vscode-descriptionForeground);
+}
+
+.tg-gauge__used {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  font-variant-numeric: tabular-nums;
+}
+
+.tg-gauge__primary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 9px;
+  min-width: 0;
+}
+
+.tg-hero {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tg-hero__num {
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 0.9;
+}
+
+.tg-hero__pct {
+  font-size: 18px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.tg-hero__suffix {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.tg-reset {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 16px;
+  overflow-wrap: anywhere;
+}
+
+.tg-divider {
+  border: 0;
+  border-top: 1px solid var(--vscode-panel-border);
+  margin: 0 0 12px;
+}
+
+/* ---- secondary window rows ---- */
+.tg-row {
+  display: grid;
+  grid-template-columns: minmax(48px, max-content) minmax(64px, 1fr) max-content;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.tg-row__label {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  width: 58px;
+  flex: 0 0 auto;
+}
+
+.tg-row__value {
+  font-size: 12px;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.tg-row__reset {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  margin: 4px 0 0 70px;
+  overflow-wrap: anywhere;
+}
+
+/* ---- stale (last-known) dimming + note ---- */
+.tg-data--dim {
+  opacity: 0.62;
+}
+
+.tg-stale-note {
+  margin-top: 16px;
+  display: flex;
+  /* Pin the dot to the FIRST line so a note that wraps never shows
+     a marker floating mid-paragraph. */
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--tg-warn);
+  overflow-wrap: anywhere;
+}
+
+.tg-stale-note__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tg-warn);
+  flex: 0 0 auto;
+  /* Optically center the dot on the first 11px/1.45 text line. */
+  margin-top: 5px;
+}
+
+/* A long ACTIONABLE note (title + guidance detail) renders as a
+   compact status block — no bullet dot; the title keeps the warn color and
+   the guidance line drops to the muted description tone. */
+.tg-stale-note--block {
+  display: block;
+}
+
+.tg-stale-note__body {
+  margin-top: 2px;
+  color: var(--vscode-descriptionForeground);
+  overflow-wrap: anywhere;
+}
+
+/* The guidance sits behind a native, collapsed-by-default
+   disclosure so intentional multi-session users keep a one-line warning. The
+   summary reads as a compact secondary control, not a heading. */
+.tg-stale-note__details {
+  margin-top: 2px;
+}
+
+.tg-stale-note__summary {
+  width: fit-content;
+  max-width: 100%;
+  cursor: pointer;
+  color: var(--vscode-descriptionForeground);
+  user-select: none;
+  overflow-wrap: anywhere;
+}
+
+.tg-stale-note__summary:hover {
+  color: var(--tg-warn);
+}
+
+.tg-stale-note__summary:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+/* ---- technical details ---- */
+.tg-details {
+  margin-top: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.tg-context-note {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* ============================ RISK PILL ============================ */
+.risk-pill {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 9px;
+  padding: 1px 8px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.risk-pill__icon {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  fill: currentColor;
+  flex: none;
+}
+
+.risk-pill--warning {
+  color: var(--tg-warn);
+}
+
+.risk-pill--critical {
+  color: var(--tg-crit);
+}
+
+/* The safe inline error fallback line (SafeAgentCard). */
+.agent-card__reason {
+  margin: 0;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* ============================ STATUS BADGE ========================= */
+.tg-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  max-width: 100%;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid var(--vscode-contrastBorder, transparent);
+}
+
+.tg-badge__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.tg-badge--live {
+  color: var(--tg-live);
+}
+.tg-badge--live .tg-badge__dot {
+  background: var(--tg-live);
+}
+.tg-badge--stale {
+  color: var(--tg-warn);
+}
+.tg-badge--stale .tg-badge__dot {
+  background: var(--tg-warn);
+}
+.tg-badge--muted {
+  color: var(--tg-neutral);
+}
+.tg-badge--muted .tg-badge__dot {
+  background: var(--tg-neutral);
+}
+.tg-badge--blocked {
+  color: var(--tg-crit);
+}
+.tg-badge--blocked .tg-badge__dot {
+  background: var(--tg-crit);
+}
+
+/* ============================ SETUP CALLOUT ======================== */
+.tg-setup {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding: 4px 0 2px;
+  min-width: 0;
+}
+
+.tg-setup__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.tg-setup__msg {
+  font-size: 11.5px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.tg-cta {
+  font-size: 12px;
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
+}
+
+/* ============================ PRIVACY FOOTER ======================= */
+.tg-footer {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.tg-footer__line {
+  font-size: 10.5px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+/* ============================ BATTERY METER ======================== */
+/* CSP-safe horizontal meter (fill = % remaining). The fill width is an SVG
+   geometry attribute on the rect; only the COLOR changes here (brand → warn →
+   crit via data-level). Rounded ends come from overflow:hidden + border-radius
+   on the svg box. The HC contrast outline rides on the border token. */
+.tg-meter {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 6px;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--vscode-contrastBorder, transparent);
+}
+
+.tg-meter--lg {
+  height: 10px;
+  border-radius: 6px;
+}
+
+.tg-meter__track {
+  fill: var(--tg-track);
+}
+
+.tg-meter__fill {
+  fill: var(--tg-accent, var(--tg-claude));
+}
+
+.tg-meter__fill[data-level="warn"] {
+  fill: var(--tg-warn);
+}
+
+.tg-meter__fill[data-level="crit"] {
+  fill: var(--tg-crit);
+}
+
+/* ============================ FIRST-RUN WELCOME ==================== */
+.tg-welcome {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tg-welcome__title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.tg-welcome__intro {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.tg-step {
+  display: flex;
+  min-width: 0;
+  gap: 11px;
+  padding: 13px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 10px;
+  background: var(--vscode-editorWidget-background);
+}
+
+.tg-step__title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.tg-step__msg {
+  font-size: 11.5px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.5;
+  margin: 3px 0 11px;
+  overflow-wrap: anywhere;
+}
+
+.tg-privacy {
+  padding: 13px;
+  border-radius: 10px;
+  border: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-editorWidget-background);
+}
+
+.tg-privacy__title {
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--tg-live);
+  margin-bottom: 6px;
+}
+
+.tg-privacy__body {
+  font-size: 11.5px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+/* ============================ WIDTH GUARDRAILS ===================== */
+.tg-cockpit__content {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* The neutral visibility-transition state (zero cards, one provider hidden). */
+.tg-checking {
+  color: var(--vscode-descriptionForeground);
+  padding: 13px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 10px;
+  background: var(--vscode-editorWidget-background);
+}
+
+/* Narrow placements get padding relief ONLY — never a structural re-flow of
+ * card internals. The unconditional shell floor above owns everything else;
+ * below the viewport the webview scrolls horizontally. */
+@media (max-width: 359.98px) {
+  .cockpit-shell {
+    padding: 12px;
+  }
+
+  .tg-card__body {
+    padding: 14px;
+  }
+}

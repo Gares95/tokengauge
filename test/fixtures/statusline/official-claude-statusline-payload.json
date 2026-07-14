@@ -1,0 +1,53 @@
+{
+  "hook_event_name": "Status",
+  "session_id": "TG_RAW_SESSION_SHOULD_NOT_APPEAR",
+  "transcript_path": "TG_TRANSCRIPT_PATH_SHOULD_NOT_APPEAR",
+  "cwd": "TG_RAW_CWD_SHOULD_NOT_APPEAR",
+  "workspace": {
+    "current_dir": "TG_RAW_WORKSPACE_CURRENT_SHOULD_NOT_APPEAR",
+    "project_dir": "TG_RAW_WORKSPACE_PROJECT_SHOULD_NOT_APPEAR",
+    "repo": {
+      "host": "github.com",
+      "owner": "TG_REPO_OWNER_SHOULD_NOT_APPEAR",
+      "name": "TG_REPO_NAME_SHOULD_NOT_APPEAR"
+    }
+  },
+  "model": {
+    "id": "claude-opus-4-1",
+    "display_name": "Claude Opus 4.1"
+  },
+  "cost": {
+    "total_cost_usd": 12.34,
+    "total_duration_ms": 555,
+    "total_api_duration_ms": 444,
+    "total_lines_added": 12,
+    "total_lines_removed": 3
+  },
+  "context_window": {
+    "context_window_size": 200000,
+    "used_percentage": 38,
+    "remaining_percentage": 62,
+    "total_input_tokens": 12000,
+    "total_output_tokens": 345,
+    "current_usage": {
+      "input_tokens": 12000,
+      "output_tokens": 345,
+      "cache_creation_input_tokens": 10,
+      "cache_read_input_tokens": 20
+    }
+  },
+  "exceeds_200k_tokens": false,
+  "rate_limits": {
+    "five_hour": {
+      "used_percentage": 64,
+      "resets_at": 1781110800
+    },
+    "seven_day": {
+      "used_percentage": 29,
+      "resets_at": 1781308800
+    }
+  },
+  "output_style": {
+    "name": "default"
+  }
+}

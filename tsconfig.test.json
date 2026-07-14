@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "./out",
+    "rootDir": ".",
+    "sourceMap": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "include": ["src/**/*", "test/**/*"]
+}

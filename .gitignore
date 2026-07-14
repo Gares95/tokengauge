@@ -1,0 +1,33 @@
+node_modules/
+dist/
+out/
+coverage/
+.vscode-test/
+*.vsix
+*.vsixmanifest
+*.tgz
+.DS_Store
+.env
+.env.*
+local/
+*.log
+*:Zone.Identifier
+
+# Private development and planning material. Keep these local-only.
+.planning/
+media/
+.claude/
+.codex/
+.cursor/
+.windsurf/
+.opencode/
+.gemini/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.github/copilot-instructions.md
+
+# Local review/audit artifacts.
+CLAUDE_DOCUMENTATION_AUDIT.md
+CLAUDE_README_PROPOSED_CHANGES.md
+CODEX_DOCUMENTATION_AUDIT.md

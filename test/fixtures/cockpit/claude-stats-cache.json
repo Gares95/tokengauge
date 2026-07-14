@@ -1,0 +1,34 @@
+{
+  "version": 3,
+  "lastComputedDate": "2026-05-27",
+  "modelUsage": {
+    "claude-sonnet-4-6": {
+      "inputTokens": 10788,
+      "outputTokens": 171245,
+      "cacheReadInputTokens": 21671872,
+      "cacheCreationInputTokens": 1205226,
+      "webSearchRequests": 0,
+      "costUSD": 12.5,
+      "contextWindow": 200000,
+      "maxOutputTokens": 64000
+    },
+    "claude-opus-4-7": {
+      "inputTokens": 5000,
+      "outputTokens": 90000,
+      "cacheReadInputTokens": 1000000,
+      "cacheCreationInputTokens": 200000,
+      "webSearchRequests": 2,
+      "costUSD": 30.0,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000
+    }
+  },
+  "totalSessions": 46,
+  "totalMessages": 15238,
+  "longestSession": {
+    "sessionId": "should-never-be-ingested",
+    "duration": 1000,
+    "messageCount": 10,
+    "timestamp": "2026-05-01T00:00:00.000Z"
+  }
+}

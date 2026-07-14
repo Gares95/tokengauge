@@ -1,0 +1,11 @@
+**
+
+!dist/
+!dist/**
+!package.json
+!README.md
+!LICENSE
+!CHANGELOG.md
+!resources/tokengauge-view.svg
+!resources/tokengauge-icon.png
+dist/**/*.map
