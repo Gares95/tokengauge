@@ -211,12 +211,12 @@
     "@vscode/test-electron": "2.5.2",
     "@vscode/vsce": "3.9.1",
     "archiver": "7.0.1",
-    "esbuild": "0.28.0",
+    "esbuild": "0.28.1",
     "eslint": "9.39.4",
     "mocha": "11.7.6",
     "typescript": "5.9.3",
     "vite": "5.4.21",
-    "yauzl": "3.2.0"
+    "yauzl": "3.2.1"
   },
   "dependencies": {
     "chokidar": "4.0.3",
