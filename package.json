@@ -222,5 +222,11 @@
     "chokidar": "4.0.3",
     "preact": "10.29.2",
     "zod": "4.4.3"
+  },
+  "overrides": {
+    "mocha": {
+      "serialize-javascript": "7.0.5",
+      "diff": "8.0.3"
+    }
   }
 }
