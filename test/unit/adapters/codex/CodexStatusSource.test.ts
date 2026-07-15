@@ -89,6 +89,8 @@ suite('CodexStatusSource: gated app-server probe path', () => {
     if (!result.ok) return;
     assert.equal(result.candidate.sourceTier, 'codex_status_snapshot');
     assert.equal(result.candidate.confidence, 'medium');
+    assert.ok(result.candidate.session);
+    assert.ok(result.candidate.weekly);
     assert.equal(result.candidate.session.usedPct, 6);
     assert.equal(result.candidate.session.leftPct, 94);
     assert.equal(result.candidate.weekly.usedPct, 1);
@@ -96,6 +98,27 @@ suite('CodexStatusSource: gated app-server probe path', () => {
     assert.ok(result.candidate.agentVersion.includes('0.137.0'));
     assert.equal(result.candidate.producedAtMs, NOW().getTime());
     assert.equal(ran(), true);
+  });
+
+  test('Enabled + weekly-only success → candidate remains valid with no fabricated 5h window', async () => {
+    const weeklyOnly: Extract<CodexProbeResult, { ok: true }> = {
+      ok: true,
+      secondary: { usedPercent: 12, windowDurationMins: 10080, resetsAt: 1781799069 },
+      planType: 'plus',
+      codexVersion: 'codex-cli 0.137.0',
+      stage: 'completed',
+      ioStage: 'response_matched',
+      sawStderr: false,
+      stdoutChunks: 3,
+      exitBucket: 'none',
+    };
+    const { probe } = makeFakeProbe(weeklyOnly);
+    const result = await probeCodexNativeStatusGated({ probeEnabled: true, probe, now: NOW });
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.candidate.session, undefined);
+    assert.equal(result.candidate.weekly?.usedPct, 12);
+    assert.equal(result.candidate.weekly?.leftPct, 88);
   });
 
   test('Enabled + probe failure → closed reason passed through unchanged, no fabrication', async () => {

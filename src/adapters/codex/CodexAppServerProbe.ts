@@ -4,10 +4,12 @@
 // A bounded, non-interactive `codex app-server` stdio JSON-RPC exchange,
 // verified live on codex-cli 0.137.0: spawn → initialize →
 // initialized → account/rateLimits/read → ALWAYS kill. This version recognizes
-// the tested 5-hour and 7-day account-window response shape and maps it under
-// sourceTier `codex_status_snapshot` at confidence 'medium' (the app-server
-// protocol is flagged [experimental] — never 'high'). Other bucket shapes fail
-// closed instead of being guessed.
+// the tested 5-hour and 7-day account-window response shapes independently and
+// maps any recognized window under sourceTier `codex_status_snapshot` at
+// confidence 'medium' (the app-server protocol is flagged [experimental] —
+// never 'high'). Unknown bucket shapes are ignored when at least one known
+// window is present; a response with no recognized window still fails closed
+// instead of being guessed.
 //
 // Privacy + honesty invariants enforced here:
 //   - The runner is an injectable seam. Tests inject a fake runner so the REAL
@@ -148,8 +150,9 @@ const CodexRateLimitsSchema = z.object({
 
 type RateLimitWindow = z.infer<typeof RateLimitWindowSchema>;
 
-// The expected window durations. A response that assigns a different duration to
-// primary/secondary is protocol drift — never silently re-mapped.
+// The known window durations. Codex has changed which windows appear for some
+// plans; recognize each known duration independently and never fabricate an
+// omitted one.
 const PRIMARY_WINDOW_MINS = 300; // 5h
 const SECONDARY_WINDOW_MINS = 10080; // weekly
 
@@ -222,8 +225,11 @@ export interface CodexProbeWindow {
 export type CodexProbeResult =
   | {
       readonly ok: true;
-      readonly primary: CodexProbeWindow;
-      readonly secondary: CodexProbeWindow;
+      // `primary` is the known 5-hour window, when present. `secondary` is the
+      // known weekly window, when present. The Codex app-server field names are
+      // not trusted for presence/ordering; assignment is by windowDurationMins.
+      readonly primary?: CodexProbeWindow;
+      readonly secondary?: CodexProbeWindow;
       readonly planType?: string;
       readonly rateLimitReachedType?: string;
       // Sanitized version/userAgent fingerprint — the ONLY initialize field that
@@ -384,10 +390,8 @@ export class CodexAppServerProbe {
         return settleFail('codex_protocol_drift', killOnce, stage);
       }
       const { primary, secondary } = parsed.data.rateLimits;
-      // Window-duration sanity: a mismatch means the window mapping is untrustworthy.
-      const primaryWindow = matchedWindow(primary, PRIMARY_WINDOW_MINS);
-      const secondaryWindow = matchedWindow(secondary, SECONDARY_WINDOW_MINS);
-      if (primaryWindow === null || secondaryWindow === null) {
+      const windows = knownWindowsFrom(primary, secondary);
+      if (windows === null || (windows.primary === undefined && windows.secondary === undefined)) {
         return settleFail('codex_protocol_drift', killOnce, stage);
       }
       stage = 'parsed';
@@ -397,8 +401,8 @@ export class CodexAppServerProbe {
       const rateLimitReachedType = parsed.data.rateLimits.rateLimitReachedType;
       return {
         ok: true,
-        primary: primaryWindow,
-        secondary: secondaryWindow,
+        ...(windows.primary !== undefined ? { primary: windows.primary } : {}),
+        ...(windows.secondary !== undefined ? { secondary: windows.secondary } : {}),
         ...(typeof planType === 'string' ? { planType: planType.slice(0, 64) } : {}),
         ...(typeof rateLimitReachedType === 'string'
           ? { rateLimitReachedType: rateLimitReachedType.slice(0, 64) }
@@ -516,18 +520,61 @@ export class CodexAppServerProbe {
   }
 }
 
-// Validate the window's duration matches the expected slot, returning the
-// mapped window on success or null on mismatch/absence (→ codex_protocol_drift).
-function matchedWindow(
+interface KnownCodexWindows {
+  readonly primary?: CodexProbeWindow;
+  readonly secondary?: CodexProbeWindow;
+}
+
+function knownWindow(
   window: RateLimitWindow | null | undefined,
-  expectedMins: number,
-): CodexProbeWindow | null {
-  if (window === null || window === undefined) return null;
-  if (window.windowDurationMins !== expectedMins) return null;
+): { readonly kind: 'primary' | 'secondary'; readonly value: CodexProbeWindow } | undefined {
+  if (window === null || window === undefined) return undefined;
+  if (window.windowDurationMins === PRIMARY_WINDOW_MINS) {
+    return {
+      kind: 'primary',
+      value: {
+        usedPercent: window.usedPercent,
+        windowDurationMins: PRIMARY_WINDOW_MINS,
+        resetsAt: window.resetsAt ?? null,
+      },
+    };
+  }
+  if (window.windowDurationMins === SECONDARY_WINDOW_MINS) {
+    return {
+      kind: 'secondary',
+      value: {
+        usedPercent: window.usedPercent,
+        windowDurationMins: SECONDARY_WINDOW_MINS,
+        resetsAt: window.resetsAt ?? null,
+      },
+    };
+  }
+  return undefined;
+}
+
+// Map the app-server's two window slots by duration, not by required presence.
+// Duplicate known durations are ambiguous and fail closed; unknown/future
+// durations are ignored when a known 5h or weekly window is present.
+function knownWindowsFrom(
+  primary: RateLimitWindow | null | undefined,
+  secondary: RateLimitWindow | null | undefined,
+): KnownCodexWindows | null {
+  let primaryWindow: CodexProbeWindow | undefined;
+  let secondaryWindow: CodexProbeWindow | undefined;
+  for (const slot of [primary, secondary]) {
+    const matched = knownWindow(slot);
+    if (matched === undefined) continue;
+    if (matched.kind === 'primary') {
+      if (primaryWindow !== undefined) return null;
+      primaryWindow = matched.value;
+    } else {
+      if (secondaryWindow !== undefined) return null;
+      secondaryWindow = matched.value;
+    }
+  }
   return {
-    usedPercent: window.usedPercent,
-    windowDurationMins: expectedMins,
-    resetsAt: window.resetsAt ?? null,
+    ...(primaryWindow !== undefined ? { primary: primaryWindow } : {}),
+    ...(secondaryWindow !== undefined ? { secondary: secondaryWindow } : {}),
   };
 }
 
@@ -547,12 +594,12 @@ export interface CodexStatusCandidate {
   readonly producedAtMs: number;
   readonly scope: { readonly provider: ProviderId; readonly agent: AgentId };
   readonly confidence: 'medium';
-  readonly session: {
+  readonly session?: {
     readonly usedPct: number;
     readonly leftPct: number;
     readonly resetsAt?: string;
   };
-  readonly weekly: {
+  readonly weekly?: {
     readonly usedPct: number;
     readonly leftPct: number;
     readonly resetsAt?: string;
@@ -586,15 +633,15 @@ export function mapProbeResultToCandidate(
   now: () => Date,
   extras: MapCandidateExtras = {},
 ): CodexStatusCandidate {
-  const session = windowToField(result.primary);
-  const weekly = windowToField(result.secondary);
+  const session = result.primary !== undefined ? windowToField(result.primary) : undefined;
+  const weekly = result.secondary !== undefined ? windowToField(result.secondary) : undefined;
   return {
     sourceTier: 'codex_status_snapshot',
     producedAtMs: now().getTime(),
     scope: { provider: 'openai', agent: 'codex' },
     confidence: 'medium',
-    session,
-    weekly,
+    ...(session !== undefined ? { session } : {}),
+    ...(weekly !== undefined ? { weekly } : {}),
     agentVersion: result.codexVersion,
     ...(result.planType !== undefined ? { planType: result.planType } : {}),
     ...(extras.model !== undefined ? { model: extras.model } : {}),

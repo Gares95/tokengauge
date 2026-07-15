@@ -9,7 +9,7 @@
 // fixed copy via a static lookup — no free-form strings reach the DOM. The exact
 // source tier / raw freshness / reason id live only in the technical <details>.
 
-import type { CardRisk, GaugeCardViewModel } from '../cockpit/GaugeCardViewModel';
+import type { CardRisk, GaugeCardViewModel, GaugeViewModel } from '../cockpit/GaugeCardViewModel';
 import type { CockpitFieldReason } from '../core/cockpit/CockpitState';
 import {
   badgeForState,
@@ -111,6 +111,24 @@ function resetText(subLabel: string | undefined): string | undefined {
   if (subLabel === undefined) return undefined;
   const idx = subLabel.indexOf('resets ');
   return idx >= 0 ? subLabel.slice(idx) : undefined;
+}
+
+interface DisplayLimit {
+  readonly kind: 'session' | 'weekly';
+  readonly label: '5-hour window' | 'Weekly';
+  readonly ariaLabel: '5-hour window remaining' | 'Weekly remaining';
+  readonly gauge: GaugeViewModel;
+}
+
+function displayLimit(kind: 'session' | 'weekly', gauge: GaugeViewModel): DisplayLimit | undefined {
+  if (gauge.usedPct === undefined) return undefined;
+  return kind === 'session'
+    ? { kind, label: '5-hour window', ariaLabel: '5-hour window remaining', gauge }
+    : { kind, label: 'Weekly', ariaLabel: 'Weekly remaining', gauge };
+}
+
+function primaryDisplayLimit(card: GaugeCardViewModel): DisplayLimit | undefined {
+  return displayLimit('session', card.session) ?? displayLimit('weekly', card.weekly);
 }
 
 // Risk must never be conveyed by color alone (WCAG 1.4.1): the meter color is
@@ -245,13 +263,19 @@ export function AgentCard({
   const edge = edgeForState(state);
   const badge = badgeForState(state);
   const model = modelLine(card);
-  const hasMeters = state === 'live' || state === 'stale';
+  const primaryLimit = primaryDisplayLimit(card);
+  const hasMeters = (state === 'live' || state === 'stale') && primaryLimit !== undefined;
   const dim = state === 'stale';
   const setup = setupCalloutFor(card);
   // leftPct always accompanies usedPct in current VMs; the derivation guards a
   // persisted VM from an older build (webview state restore is a version
   // boundary) so a missing leftPct can never render as a critical-looking 0%.
-  const sessionLeft = card.session.leftPct ?? 100 - (card.session.usedPct ?? 0);
+  const primaryLeft =
+    primaryLimit !== undefined
+      ? (primaryLimit.gauge.leftPct ?? 100 - (primaryLimit.gauge.usedPct ?? 0))
+      : 0;
+  const weeklySecondary =
+    primaryLimit?.kind === 'session' ? displayLimit('weekly', card.weekly) : undefined;
   const staleNote = reasonCopy(card.reason);
   const staleDetail = card.reason !== undefined ? REASON_COPY_DETAIL[card.reason] : undefined;
 
@@ -277,40 +301,42 @@ export function AgentCard({
           <>
             <div className={dim ? 'tg-data tg-data--dim' : 'tg-data'}>
               <div className="tg-gauge__labelrow">
-                <span className="tg-gauge__label">5-hour window</span>
-                {card.session.usedPct !== undefined ? (
-                  <span className="tg-gauge__used">{`${card.session.usedPct}% used`}</span>
-                ) : null}
+                <span className="tg-gauge__label">{primaryLimit.label}</span>
+                <span className="tg-gauge__used">{`${primaryLimit.gauge.usedPct}% used`}</span>
               </div>
               <div className="tg-gauge__primary">
                 <div className="tg-hero">
-                  <span className="tg-hero__num">{sessionLeft}</span>
+                  <span className="tg-hero__num">{primaryLeft}</span>
                   <span className="tg-hero__pct">%</span>
                   <span className="tg-hero__suffix">left</span>
                 </div>
                 <Meter
-                  leftPct={sessionLeft}
-                  level={levelFromRisk(card.risk)}
+                  leftPct={primaryLeft}
+                  level={
+                    primaryLimit.kind === 'session'
+                      ? levelFromRisk(card.risk)
+                      : levelFromLeftPct(primaryLeft)
+                  }
                   large
-                  ariaLabel={`5-hour window remaining${dim ? ' (last known)' : ''}`}
+                  ariaLabel={`${primaryLimit.ariaLabel}${dim ? ' (last known)' : ''}`}
                 />
               </div>
               <RiskPill risk={card.risk} />
-              {resetText(card.session.subLabel) !== undefined ? (
-                <div className="tg-reset">{resetText(card.session.subLabel)}</div>
+              {resetText(primaryLimit.gauge.subLabel) !== undefined ? (
+                <div className="tg-reset">{resetText(primaryLimit.gauge.subLabel)}</div>
               ) : null}
-              {card.weekly.leftPct !== undefined ? (
+              {weeklySecondary !== undefined && weeklySecondary.gauge.leftPct !== undefined ? (
                 <>
                   <hr className="tg-divider" />
                   <WindowRow
-                    label="Weekly"
-                    fillPct={card.weekly.leftPct}
-                    level={levelFromLeftPct(card.weekly.leftPct)}
-                    valueText={`${card.weekly.leftPct}% left`}
-                    {...(resetText(card.weekly.subLabel) !== undefined
-                      ? { reset: resetText(card.weekly.subLabel) }
+                    label={weeklySecondary.label}
+                    fillPct={weeklySecondary.gauge.leftPct}
+                    level={levelFromLeftPct(weeklySecondary.gauge.leftPct)}
+                    valueText={`${weeklySecondary.gauge.leftPct}% left`}
+                    {...(resetText(weeklySecondary.gauge.subLabel) !== undefined
+                      ? { reset: resetText(weeklySecondary.gauge.subLabel) }
                       : {})}
-                    ariaLabel={`Weekly remaining${dim ? ' (last known)' : ''}`}
+                    ariaLabel={`${weeklySecondary.ariaLabel}${dim ? ' (last known)' : ''}`}
                   />
                 </>
               ) : null}
