@@ -648,9 +648,30 @@ suite('GaugeCardViewModel codex context unavailable', () => {
       now,
     });
     const codex = cardFor(cards, 'codex');
+    assert.equal(codex.session.usedPct, undefined, 'no fabricated 5h window');
     assert.equal(codex.weekly.usedPct, 7);
+    assert.equal(codex.weekly.leftPct, 93);
+    assert.equal(codex.freshness, 'fresh');
+    assert.equal(codex.reason, undefined);
+    assert.equal(codex.risk, 'ok');
+    assert.equal(codex.sourceTier, 'codex_status_snapshot');
     assert.equal(codex.context.reason, 'codex_context_unavailable');
     assert.notEqual(codex.context.reason, 'no_source');
+  });
+
+  test('(a3) only 5h value present remains a successful Codex card with no weekly fabrication', () => {
+    const cards = buildGaugeCardViewModels({
+      candidates: [codexCandidate({ weekly: undefined, session: { usedPct: 12 } })],
+      configuredAgents: ['codex'],
+      now,
+    });
+    const codex = cardFor(cards, 'codex');
+    assert.equal(codex.session.usedPct, 12);
+    assert.equal(codex.session.leftPct, 88);
+    assert.equal(codex.weekly.usedPct, undefined, 'no fabricated weekly window');
+    assert.equal(codex.freshness, 'fresh');
+    assert.equal(codex.reason, undefined);
+    assert.equal(codex.context.reason, 'codex_context_unavailable');
   });
 
   test('(b) truly not-configured / zero-candidate Codex card keeps the not-configured reason (no false codex_context_unavailable)', () => {

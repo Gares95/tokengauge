@@ -184,6 +184,58 @@ suite('AgentCard — header + live meters', () => {
     assert.ok(bars.some((b) => /Weekly remaining/.test(String(b.props['aria-label']))));
   });
 
+  test('Weekly-only Codex renders one primary weekly meter and no 5h placeholder', () => {
+    const out = AgentCard({
+      card: liveCard({
+        agent: 'codex',
+        agentLabel: 'Codex',
+        colorKey: 'codex',
+        sourceTier: 'codex_status_snapshot',
+        session: { centerLabel: '—', state: 'unavailable', reason: 'no_source' },
+        weekly: gauge({
+          usedPct: 7,
+          leftPct: 93,
+          centerLabel: '7%',
+          subLabel: '93% left · resets Mon',
+        }),
+        risk: 'ok',
+      }),
+    });
+    const text = textContent(out);
+    assert.match(text, /Live/);
+    assert.match(text, /Weekly/);
+    assert.match(text, /7% used/);
+    assert.ok(!/5-hour window/.test(text), 'no nonexistent 5h label or placeholder');
+    const bars = progressbars(out);
+    assert.equal(bars.length, 1);
+    assert.equal(bars[0]?.props['aria-label'], 'Weekly remaining');
+    assert.equal(bars[0]?.props['aria-valuenow'], 93);
+    const primaryBlocks = nodesWhere(out, (props) =>
+      String(props.className ?? '')
+        .split(/\s+/)
+        .includes('tg-gauge__primary'),
+    );
+    assert.equal(primaryBlocks.length, 1, 'weekly-only uses the primary gauge block');
+  });
+
+  test('Short-only Codex renders one primary 5h meter and no weekly placeholder', () => {
+    const out = AgentCard({
+      card: liveCard({
+        agent: 'codex',
+        agentLabel: 'Codex',
+        colorKey: 'codex',
+        sourceTier: 'codex_status_snapshot',
+        weekly: { centerLabel: '—', state: 'unavailable', reason: 'no_source' },
+      }),
+    });
+    const text = textContent(out);
+    assert.match(text, /5-hour window/);
+    assert.ok(!/Weekly/.test(text), 'no nonexistent weekly label or placeholder');
+    const bars = progressbars(out);
+    assert.equal(bars.length, 1);
+    assert.equal(bars[0]?.props['aria-label'], '5-hour window remaining');
+  });
+
   test('The reset line stands alone (no "% left" prefix — that is the hero)', () => {
     const text = textContent(AgentCard({ card: liveCard() }));
     assert.match(text, /resets 12:30/);

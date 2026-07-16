@@ -144,6 +144,8 @@ suite('CodexAppServerProbe: bounded JSON-RPC probe', () => {
     const result = await probe.run();
     assert.equal(result.ok, true);
     if (!result.ok) return;
+    assert.ok(result.primary);
+    assert.ok(result.secondary);
     assert.equal(result.primary.usedPercent, 6);
     assert.equal(result.primary.windowDurationMins, 300);
     assert.equal(result.primary.resetsAt, 1781212269);
@@ -154,12 +156,67 @@ suite('CodexAppServerProbe: bounded JSON-RPC probe', () => {
     assert.equal(handle.killCount, 1);
   });
 
-  test('Window sanity: primary not 300 → codex_protocol_drift', async () => {
+  test('Weekly-only window succeeds when the 5h window is absent', async () => {
+    const { probe } = makeProbe({
+      rateLimitsResult: {
+        rateLimits: {
+          primary: null,
+          secondary: { usedPercent: 1, windowDurationMins: 10080, resetsAt: 1781799069 },
+        },
+      },
+    });
+    const result = await probe.run();
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.primary, undefined);
+    assert.equal(result.secondary?.windowDurationMins, 10080);
+    const candidate = mapProbeResultToCandidate(result, NOW);
+    assert.equal(candidate.session, undefined);
+    assert.equal(candidate.weekly?.usedPct, 1);
+  });
+
+  test('Short-only window succeeds when the weekly window is absent', async () => {
+    const { probe } = makeProbe({
+      rateLimitsResult: {
+        rateLimits: {
+          primary: { usedPercent: 6, windowDurationMins: 300, resetsAt: 1781212269 },
+          secondary: null,
+        },
+      },
+    });
+    const result = await probe.run();
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.primary?.windowDurationMins, 300);
+    assert.equal(result.secondary, undefined);
+    const candidate = mapProbeResultToCandidate(result, NOW);
+    assert.equal(candidate.session?.usedPct, 6);
+    assert.equal(candidate.weekly, undefined);
+  });
+
+  test('Unknown future window is ignored when a known weekly window is present', async () => {
     const { probe } = makeProbe({
       rateLimitsResult: {
         rateLimits: {
           primary: { usedPercent: 6, windowDurationMins: 60, resetsAt: 1781212269 },
           secondary: { usedPercent: 1, windowDurationMins: 10080, resetsAt: 1781799069 },
+          experimental: { usedPercent: 2, windowDurationMins: 1440, resetsAt: 1781300000 },
+        },
+      },
+    });
+    const result = await probe.run();
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.primary, undefined);
+    assert.equal(result.secondary?.windowDurationMins, 10080);
+  });
+
+  test('No recognized window → codex_protocol_drift', async () => {
+    const { probe } = makeProbe({
+      rateLimitsResult: {
+        rateLimits: {
+          primary: { usedPercent: 6, windowDurationMins: 60, resetsAt: 1781212269 },
+          secondary: { usedPercent: 1, windowDurationMins: 1440, resetsAt: 1781799069 },
         },
       },
     });
@@ -169,12 +226,12 @@ suite('CodexAppServerProbe: bounded JSON-RPC probe', () => {
     assert.equal(result.reason, 'codex_protocol_drift');
   });
 
-  test('Window sanity: secondary not 10080 → codex_protocol_drift', async () => {
+  test('Duplicate recognized windows fail closed', async () => {
     const { probe } = makeProbe({
       rateLimitsResult: {
         rateLimits: {
           primary: { usedPercent: 6, windowDurationMins: 300, resetsAt: 1781212269 },
-          secondary: { usedPercent: 1, windowDurationMins: 1440, resetsAt: 1781799069 },
+          secondary: { usedPercent: 1, windowDurationMins: 300, resetsAt: 1781799069 },
         },
       },
     });
@@ -384,6 +441,8 @@ suite('CodexAppServerProbe: result → codex_status_snapshot candidate', () => {
     const result = await probe.run();
     assert.equal(result.ok, true);
     if (!result.ok) throw new Error('expected ok');
+    assert.ok(result.primary);
+    assert.ok(result.secondary);
     return result;
   }
 
@@ -393,6 +452,8 @@ suite('CodexAppServerProbe: result → codex_status_snapshot candidate', () => {
     assert.equal(candidate.sourceTier, 'codex_status_snapshot');
     assert.deepEqual(candidate.scope, { provider: 'openai', agent: 'codex' });
     assert.equal(candidate.confidence, 'medium');
+    assert.ok(candidate.session);
+    assert.ok(candidate.weekly);
     assert.equal(candidate.session.usedPct, 6);
     assert.equal(candidate.session.leftPct, 94);
     assert.equal(candidate.session.resetsAt, new Date(1781212269 * 1000).toISOString());
@@ -443,7 +504,11 @@ suite('CodexAppServerProbe: result → codex_status_snapshot candidate', () => {
     const result = await probe.run();
     assert.equal(result.ok, true);
     if (!result.ok) return;
+    assert.ok(result.primary);
+    assert.ok(result.secondary);
     const candidate = mapProbeResultToCandidate(result, NOW);
+    assert.ok(candidate.session);
+    assert.ok(candidate.weekly);
     // 5h (session) gauge reflects the 5h window: 93 used / 7 left — NOT inverted.
     assert.equal(candidate.session.usedPct, 93, '5h usedPct must be the reported 93, not ~7');
     assert.equal(candidate.session.leftPct, 7, '5h leftPct = 100 - used');
@@ -458,10 +523,7 @@ suite('CodexAppServerProbe: result → codex_status_snapshot candidate', () => {
     );
   });
 
-  // The 5h window comes from `primary` (300min) and weekly from
-  // `secondary` (10080min). A response that SWAPS the durations is protocol drift
-  // (matchedWindow), so the gauges can never silently read the wrong window.
-  test(' swapped window durations fail closed to codex_protocol_drift (no wrong-window)', async () => {
+  test(' swapped window slots are mapped by duration (no wrong-window)', async () => {
     const { probe } = makeProbe({
       rateLimitsResult: {
         rateLimits: {
@@ -472,9 +534,11 @@ suite('CodexAppServerProbe: result → codex_status_snapshot candidate', () => {
       },
     });
     const result = await probe.run();
-    assert.equal(result.ok, false, 'a swapped-window response must not produce a candidate');
-    if (result.ok) return;
-    assert.equal(result.reason, 'codex_protocol_drift');
+    assert.equal(result.ok, true, 'slot names do not determine known-window validity');
+    if (!result.ok) return;
+    const candidate = mapProbeResultToCandidate(result, NOW);
+    assert.equal(candidate.session?.usedPct, 93, '5h remains assigned by 300min duration');
+    assert.equal(candidate.weekly?.usedPct, 22, 'weekly remains assigned by 10080min duration');
   });
 });
 

@@ -1,9 +1,9 @@
 // The pure presentation classifier that maps a sanitized GaugeCardViewModel
 // to a design visual state. NO new data — it reads existing VM fields only
-// (freshness, the closed-union reason, session value presence) and decides which
+// (freshness, the closed-union reason, limit value presence) and decides which
 // design treatment a card gets. The honesty rule is structural: a card with NO
-// session value never renders a meter — it renders a SetupCallout instead, so an
-// unavailable source can never look like 0% usage.
+// usable limit value never renders a meter — it renders a SetupCallout instead,
+// so an unavailable source can never look like 0% usage.
 
 import type { GaugeCardViewModel } from '../cockpit/GaugeCardViewModel';
 import type { CockpitFieldReason } from '../core/cockpit/CockpitState';
@@ -66,12 +66,17 @@ const NOT_CONFIGURED_REASONS: ReadonlySet<CockpitFieldReason> = new Set<CockpitF
 ]);
 
 export function cardVisualState(card: GaugeCardViewModel): CardVisualState {
-  // A card with a real session value always shows meters: fresh → live, anything
-  // else (stale / degraded-with-retained-value) → last-known.
-  if (card.session.usedPct !== undefined) {
+  // A card with a real known-window value shows meters: fresh → live, anything
+  // else (stale / degraded-with-retained-value) → last-known. A card whose
+  // freshness is unavailable remains a no-meter state even if a non-primary
+  // value is retained for diagnostics.
+  if (
+    (card.session.usedPct !== undefined || card.weekly.usedPct !== undefined) &&
+    card.freshness !== 'unavailable'
+  ) {
     return card.freshness === 'fresh' ? 'live' : 'stale';
   }
-  // No session value → a no-meter state classified by the closed-union reason.
+  // No usable limit value → a no-meter state classified by the closed-union reason.
   const reason = card.reason;
   if (reason !== undefined) {
     if (ERROR_REASONS.has(reason)) return 'error';

@@ -314,6 +314,8 @@ suite('SpawnCodexAppServer stdio discipline — no port', () => {
       assert.equal(resolver, 'user_shell');
       assert.equal(result.ok, true, `resolver=${resolver ?? 'none'}`);
       if (!result.ok) return;
+      assert.ok(result.primary);
+      assert.ok(result.secondary);
       assert.equal(result.primary.windowDurationMins, 300);
       assert.equal(result.secondary.windowDurationMins, 10080);
     } finally {
@@ -410,6 +412,7 @@ suite('SpawnCodexAppServer stdio discipline — no port', () => {
       const result = await probe.run();
       assert.equal(result.ok, true);
       if (!result.ok) return;
+      assert.ok(result.primary);
       assert.equal(result.primary.windowDurationMins, 300);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
@@ -550,6 +553,8 @@ suite('SpawnCodexAppServer stdio discipline — no port', () => {
       assert.equal(resolver, 'nvm');
       assert.equal(result.ok, true, `resolver=${resolver ?? 'none'}`);
       if (!result.ok) return;
+      assert.ok(result.primary);
+      assert.ok(result.secondary);
       assert.equal(result.primary.windowDurationMins, 300);
       assert.equal(result.secondary.windowDurationMins, 10080);
     } finally {

@@ -132,6 +132,19 @@ suite('cardVisualState — state mapping', () => {
     assert.equal(cardVisualState(card({ freshness: 'fresh' })), 'live');
   });
 
+  test('A fresh card with only a weekly value → live', () => {
+    assert.equal(
+      cardVisualState(
+        card({
+          session: valuelessGauge('no_source'),
+          weekly: gauge({ usedPct: 7, leftPct: 93 }),
+          freshness: 'fresh',
+        }),
+      ),
+      'live',
+    );
+  });
+
   test('A card with a retained value but non-fresh → stale (last known)', () => {
     assert.equal(
       cardVisualState(card({ freshness: 'stale', reason: 'native_status_stale' })),

@@ -262,18 +262,54 @@ function contextGauge(context: CockpitContextWindow): GaugeViewModel {
   };
 }
 
-// Aggregate per-card freshness from the primary gauges. session
-// unavailable → 'unavailable'; any field stale → 'stale'; mixed available →
-// 'degraded'; all fresh → 'fresh'.
-function cardFreshness(session: GaugeViewModel, weekly: GaugeViewModel): CardFreshness {
-  if (session.state === 'unavailable') return 'unavailable';
-  // A degraded session (e.g. snapshot_writer_collision — value retained, source
-  // ambiguous) degrades the whole card without blanking it.
-  if (session.state === 'degraded' || weekly.state === 'degraded') return 'degraded';
-  if (session.state === 'stale' || weekly.state === 'stale') return 'stale';
-  const states = [session.state, weekly.state];
-  const anyUnavailable = states.includes('unavailable');
-  if (anyUnavailable) return 'degraded';
+function isOptionalLimitAbsence(reason: CockpitFieldReason | undefined): boolean {
+  return reason === undefined || reason === 'no_source' || reason === 'no_candidate';
+}
+
+function canPromoteWeekly(agent: AgentId, session: GaugeViewModel): boolean {
+  return agent === 'codex' && isOptionalLimitAbsence(session.reason);
+}
+
+function primaryLimitField(agent: AgentId, state: CockpitState): CockpitField<number> {
+  if (state.session.usedPct.available && typeof state.session.usedPct.value === 'number') {
+    return state.session.usedPct;
+  }
+  if (
+    agent === 'codex' &&
+    isOptionalLimitAbsence(state.session.usedPct.reason) &&
+    state.weekly.usedPct.available &&
+    typeof state.weekly.usedPct.value === 'number'
+  ) {
+    return state.weekly.usedPct;
+  }
+  return state.session.usedPct;
+}
+
+function primaryLimitGauge(session: GaugeViewModel, weekly: GaugeViewModel): GaugeViewModel {
+  if (session.usedPct !== undefined) return session;
+  if (weekly.usedPct !== undefined) return weekly;
+  return session;
+}
+
+// Aggregate per-card freshness from any available known limit window. Optional
+// absence of one known window no longer blanks the whole card, but a non-optional
+// 5h absence such as reset-pending remains a card-level no-meter state.
+function cardFreshness(
+  agent: AgentId,
+  session: GaugeViewModel,
+  weekly: GaugeViewModel,
+): CardFreshness {
+  if (
+    session.usedPct === undefined &&
+    weekly.usedPct !== undefined &&
+    !canPromoteWeekly(agent, session)
+  ) {
+    return 'unavailable';
+  }
+  const available = [session, weekly].filter((gauge) => gauge.usedPct !== undefined);
+  if (available.length === 0) return 'unavailable';
+  if (available.some((gauge) => gauge.state === 'degraded')) return 'degraded';
+  if (available.some((gauge) => gauge.state === 'stale')) return 'stale';
   return 'fresh';
 }
 
@@ -425,12 +461,13 @@ function viewModelFromState(
     state.session.usedPct,
     state.weekly.usedPct,
   );
-  const risk = deriveRisk(state.session.usedPct);
-  const freshness = cardFreshness(session, weekly);
+  const limitField = primaryLimitField(agent, state);
+  const risk = deriveRisk(limitField);
+  const freshness = cardFreshness(agent, session, weekly);
   // Card-level accuracy/confidence propagate from the resolved session field —
   // the primary visible metric (HIGH-1: a card with a visible metric must carry
   // an accuracyLabel).
-  const cardMeta = metaProps(state.session.usedPct);
+  const cardMeta = metaProps(limitField);
   // The model is SESSION-SPECIFIC — under snapshot_writer_collision two
   // sessions' models (e.g. fable ↔ opus) alternate last-writer-wins in the card
   // header and the status-bar tooltip. Mute it like context/cost; the card
@@ -458,12 +495,17 @@ function viewModelFromState(
   // generic `no_source` when the session resolved unavailable. A
   // degraded-with-retained-value reason surfaces even though the session is
   // available.
+  const primaryGauge = primaryLimitGauge(session, weekly);
   const cardReason =
-    isDegradedWithValue && session.usedPct !== undefined
-      ? blockerReason
-      : blockerReason !== undefined && !state.session.usedPct.available
+    session.usedPct === undefined &&
+    weekly.usedPct !== undefined &&
+    !canPromoteWeekly(agent, session)
+      ? session.reason
+      : isDegradedWithValue && primaryGauge.usedPct !== undefined
         ? blockerReason
-        : state.session.usedPct.reason;
+        : blockerReason !== undefined && primaryGauge.usedPct === undefined
+          ? blockerReason
+          : primaryGauge.reason;
 
   return {
     agent,
@@ -478,7 +520,7 @@ function viewModelFromState(
     ...(costLabel !== undefined ? { costLabel } : {}),
     ...(costReason !== undefined ? { costReason } : {}),
     risk: cardRisk(risk),
-    sourceTier: state.session.usedPct.sourceTier,
+    sourceTier: limitField.sourceTier,
     ...cardMeta,
     freshness,
     ...(cardReason !== undefined ? { reason: cardReason } : {}),

@@ -269,22 +269,21 @@ export function createCodexProbeRetentionGate(
   // would not update it). A boolean — never the reset instant itself.
   let lastResetAtPresent = false;
 
-  // Apply the conservative reducer to one metric, mutating its hold and returning
+  // Apply the conservative reducer to one metric on a fresh valid probe, mutating
+  // its hold and returning
   // the conservative { usedPct, leftPct, resetsAt } to surface. Same window (equal/
   // unparseable reset) → max usedPct / min leftPct; a NEWER reset → accept the
   // (possibly lower) incoming as the new window; an OLDER reset → keep the held
-  // value (a stale pre-reset sample can never take control back).
+  // value (a stale pre-reset sample can never take control back). An omitted
+  // metric in a fresh valid probe clears that metric's hold — absence is real
+  // source state, not a cue to retain a stale window.
   function reduceMetric(
     metric: CodexMetric,
     window: { usedPct?: number; leftPct?: number; resetsAt?: string } | undefined,
   ): { usedPct: number; leftPct?: number; resetsAt?: string } | undefined {
     if (window === undefined || window.usedPct === undefined) {
-      if (holds[metric].usedPct === undefined) return undefined;
-      const hold = holds[metric];
-      return {
-        usedPct: hold.usedPct as number,
-        ...(hold.leftPct !== undefined ? { leftPct: hold.leftPct } : {}),
-      };
+      holds[metric] = { resetMs: undefined, usedPct: undefined, leftPct: undefined };
+      return undefined;
     }
     const hold = holds[metric];
     const incomingResetMs = resetMsOf(window);

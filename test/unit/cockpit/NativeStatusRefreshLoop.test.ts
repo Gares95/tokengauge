@@ -931,16 +931,20 @@ suite('NativeStatusRefreshLoop — per-tick transformCandidates seam', () => {
 // poll cadence, and NEVER shows no_source ("No data source configured") once valid
 // or while the probe is enabled.
 suite('NativeStatusRefreshLoop × CodexProbeRetentionGate cadence', () => {
-  function validCodex(over: { sessionPct?: number; weeklyPct?: number } = {}): SourceCandidate {
-    const sessionPct = over.sessionPct ?? 1;
-    const weeklyPct = over.weeklyPct ?? 5;
+  function validCodex(
+    over: { sessionPct?: number | null; weeklyPct?: number | null } = {},
+  ): SourceCandidate {
+    const sessionPct = over.sessionPct === undefined ? 1 : over.sessionPct;
+    const weeklyPct = over.weeklyPct === undefined ? 5 : over.weeklyPct;
     return {
       sourceTier: 'codex_status_snapshot',
       producedAtMs: Date.now(),
       scope: { provider: 'openai', agent: 'codex' },
       confidence: 'medium',
-      session: { usedPct: sessionPct, leftPct: 100 - sessionPct },
-      weekly: { usedPct: weeklyPct, leftPct: 100 - weeklyPct },
+      ...(sessionPct !== null
+        ? { session: { usedPct: sessionPct, leftPct: 100 - sessionPct } }
+        : {}),
+      ...(weeklyPct !== null ? { weekly: { usedPct: weeklyPct, leftPct: 100 - weeklyPct } } : {}),
       agentVersion: 'codex/0.137.0',
     };
   }
@@ -1021,6 +1025,83 @@ suite('NativeStatusRefreshLoop × CodexProbeRetentionGate cadence', () => {
     const codex = codexCard(posts.at(-1));
     assert.equal(codex?.session.usedPct, 12);
     assert.equal(codex?.weekly.usedPct, 21);
+    assert.equal(codex?.freshness, 'fresh');
+    loop.dispose();
+  });
+
+  test('Weekly-only probe at activation is fresh and does not retain a fabricated 5h value', async () => {
+    const clock = fakeClock(0);
+    const timers = fakeTimers();
+    const posts: GaugeCardViewModel[][] = [];
+    const loop = buildLoop({
+      clock,
+      timers,
+      posts,
+      probeOutcomes: [[validCodex({ sessionPct: null, weeklyPct: 7 })]],
+    });
+
+    await settle();
+
+    const codex = codexCard(posts.at(-1));
+    assert.equal(codex?.session.usedPct, undefined);
+    assert.equal(codex?.weekly.usedPct, 7);
+    assert.equal(codex?.freshness, 'fresh');
+    assert.equal(codex?.reason, undefined);
+    loop.dispose();
+  });
+
+  test('A later weekly-only valid probe clears the prior retained 5h value', async () => {
+    const clock = fakeClock(0);
+    const timers = fakeTimers();
+    const posts: GaugeCardViewModel[][] = [];
+    const loop = buildLoop({
+      clock,
+      timers,
+      posts,
+      probeOutcomes: [
+        [validCodex({ sessionPct: 12, weeklyPct: 21 })],
+        [validCodex({ sessionPct: null, weeklyPct: 23 })],
+      ],
+    });
+    await settle();
+    assert.equal(codexCard(posts.at(-1))?.session.usedPct, 12);
+
+    posts.length = 0;
+    clock.advance(PROBE_MIN_INTERVAL_MS);
+    timers.tick();
+    await settle();
+
+    const codex = codexCard(posts.at(-1));
+    assert.equal(codex?.session.usedPct, undefined, 'old 5h value cleared');
+    assert.equal(codex?.weekly.usedPct, 23);
+    assert.equal(codex?.freshness, 'fresh');
+    loop.dispose();
+  });
+
+  test('A later dual-window probe restores the normal two-window Codex state', async () => {
+    const clock = fakeClock(0);
+    const timers = fakeTimers();
+    const posts: GaugeCardViewModel[][] = [];
+    const loop = buildLoop({
+      clock,
+      timers,
+      posts,
+      probeOutcomes: [
+        [validCodex({ sessionPct: null, weeklyPct: 7 })],
+        [validCodex({ sessionPct: 9, weeklyPct: 11 })],
+      ],
+    });
+    await settle();
+    assert.equal(codexCard(posts.at(-1))?.session.usedPct, undefined);
+
+    posts.length = 0;
+    clock.advance(PROBE_MIN_INTERVAL_MS);
+    timers.tick();
+    await settle();
+
+    const codex = codexCard(posts.at(-1));
+    assert.equal(codex?.session.usedPct, 9);
+    assert.equal(codex?.weekly.usedPct, 11);
     assert.equal(codex?.freshness, 'fresh');
     loop.dispose();
   });
