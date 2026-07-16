@@ -15,7 +15,7 @@ import * as assert from 'node:assert/strict';
 import * as vscode from 'vscode';
 import { runOpenPrivacyReport } from '../../src/commands/openPrivacyReport';
 
-const EXTENSION_ID = 'tokengauge.tokengauge-vscode';
+const EXTENSION_ID = 'gares-extensions.tokengauge-vscode';
 
 const RAW_LEAK_NEEDLES = [
   '/home/dev/private',

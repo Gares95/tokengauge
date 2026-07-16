@@ -19,6 +19,7 @@ const REQUIRED_DOCS = [
   'CONTRIBUTING.md',
   'ACCURACY.md',
   'CHANGELOG.md',
+  'THIRD_PARTY_NOTICES.md',
   'LICENSE',
 ];
 
@@ -482,6 +483,7 @@ const APPROVED_RELATIVE_TARGETS = new Set([
   'LICENSE',
   'PRIVACY.md',
   'SECURITY.md',
+  'THIRD_PARTY_NOTICES.md',
   'docs/adr/ADR-004-native-only-privacy-model.md',
   // 17-G01 reviewed extension: repo-only setup guides plus the two approved
   // GitHub-only README images (D4: media stays excluded from the VSIX; vsce
@@ -633,10 +635,12 @@ requirePhrases(
 // rationale is mechanically required to exist and cannot be silently dropped.
 requirePhrases('ACCURACY.md', ['no public', 'cache', 'unavailable'], 'missing-native-caveats');
 
-// missing-release-posture (SECURITY): PAT-gated optional Marketplace/Open VSX.
+// missing-release-posture (SECURITY): credentials stay isolated, first
+// Marketplace publication uses one preverified VSIX, and Open VSX remains
+// separately authorized.
 requirePhrases(
   'SECURITY.md',
-  ['marketplace', 'open vsx', 'personal access token', 'github environment'],
+  ['marketplace', 'open vsx', 'credential', 'preverified vsix', 'github environment'],
   'missing-release-posture',
 );
 

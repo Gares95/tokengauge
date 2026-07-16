@@ -469,7 +469,7 @@ suite('Configure Cockpit — focused setting deep-links', () => {
       );
       assert.ok(option && option.kind === 'settings');
       assert.equal(option.query, route.query);
-      assert.match(option.query, /^@ext:tokengauge\.tokengauge-vscode (Claude|Codex)$/);
+      assert.match(option.query, /^@ext:gares-extensions\.tokengauge-vscode (Claude|Codex)$/);
       for (const setting of route.includedSettings) {
         assert.ok(configKeys.includes(setting), `${setting} must exist in the manifest`);
       }
@@ -533,7 +533,7 @@ suite('Configure Cockpit — focused setting deep-links', () => {
         COCKPIT_SETTINGS_QUERY,
         `option "${option.label}" must NOT fall back to the generic tokenGauge query`,
       );
-      assert.match(option.query, /^@ext:tokengauge\.tokengauge-vscode /);
+      assert.match(option.query, /^@ext:gares-extensions\.tokengauge-vscode /);
       assert.ok(!seenQueries.has(option.query), `option "${option.label}" query must be distinct`);
       seenQueries.add(option.query);
 

@@ -34,7 +34,8 @@ export const CONFIGURE_COCKPIT_COMMAND = 'tokenGauge.configureCockpit' as const;
 // The namespace-wide settings filter, used ONLY by "Open all TokenGauge
 // settings". Provider options below use extension-scoped provider filters.
 export const COCKPIT_SETTINGS_QUERY = 'tokenGauge' as const;
-export const TOKEN_GAUGE_EXTENSION_SETTINGS_FILTER = '@ext:tokengauge.tokengauge-vscode' as const;
+export const TOKEN_GAUGE_EXTENSION_SETTINGS_FILTER =
+  '@ext:gares-extensions.tokengauge-vscode' as const;
 
 // Provider-level filters used by Configure Cockpit. These are read-only
 // Settings search strings, not values. They show both provider setup and

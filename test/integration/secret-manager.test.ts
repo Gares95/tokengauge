@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import type { TokenGaugeTestApi } from '../../src/extension';
 import { INSTALL_SALT_SECRET_KEY, type SecretManager } from '../../src/security/SecretManager';
 
-const EXTENSION_ID = 'tokengauge.tokengauge-vscode';
+const EXTENSION_ID = 'gares-extensions.tokengauge-vscode';
 
 async function activateAndGetApi(): Promise<TokenGaugeTestApi> {
   const extension = vscode.extensions.getExtension<TokenGaugeTestApi>(EXTENSION_ID);

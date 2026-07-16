@@ -8,7 +8,7 @@ import * as assert from 'node:assert/strict';
 import * as vscode from 'vscode';
 import type { TokenGaugeTestApi } from '../../src/extension';
 
-const EXTENSION_ID = 'tokengauge.tokengauge-vscode';
+const EXTENSION_ID = 'gares-extensions.tokengauge-vscode';
 const COCKPIT_VIEW_ID = 'tokenGauge.views.cockpit';
 
 const RAW_LEAK_NEEDLES = [

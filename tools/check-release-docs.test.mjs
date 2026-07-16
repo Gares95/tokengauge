@@ -64,15 +64,17 @@ function cleanDocs() {
       'In snapshot directory mode there is no file watcher; directory mode is poll-only. ' +
       'vsce rewrites relative links to absolute blob/HEAD URLs; releases use merge or tag-pin delivery. ' +
       'See [PRIVACY.md](PRIVACY.md) and jump to [setup](#quick-start).\n',
-    '.vscodeignore': '**\n!dist/\n!package.json\n!README.md\n!LICENSE\n!CHANGELOG.md\n',
+    '.vscodeignore':
+      '**\n!dist/\n!package.json\n!README.md\n!LICENSE\n!CHANGELOG.md\n!THIRD_PARTY_NOTICES.md\n',
     'PRIVACY.md':
       'SecretStorage caveats. Local install salt is a non-credential value. ' +
       'TokenGauge does not clear SecretStorage on uninstall. no outbound network by default.\n' +
       'Inspect with node -e \'const fs=require("node:fs"); const s=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); console.log(s.statusLine?.command ?? "")\' ~/.claude/settings.json\n',
     'SECURITY.md':
       'Release Workflow Posture. Tag-only trigger. GitHub Environment approval. ' +
-      'Optional Marketplace and Open VSX paths via Personal Access Token secrets. ' +
-      'No OIDC claim; publishing is PAT-gated.\n',
+      'Publishing credentials remain isolated. Initial Marketplace publication uses ' +
+      'owner-authenticated manual upload of one preverified VSIX. Open VSX remains separately authorized. ' +
+      'No OIDC claim.\n',
     'CONTRIBUTING.md': 'npm run lint, npm run typecheck, npm run test, npm run check.\n',
     'ACCURACY.md':
       'Labels: exact, billing_authoritative, proxy_reported, ' +
@@ -83,6 +85,7 @@ function cleanDocs() {
       'No public Anthropic tokenizer. The stats-cache is a cost/model cache. Missing native data ' +
       'reads unavailable.\n',
     'CHANGELOG.md': `# Changelog\n\n## ${pkgVersion}\n\nMVP release.\n`,
+    'THIRD_PARTY_NOTICES.md': '# Third-Party Notices\n\nBundled runtime components.\n',
     LICENSE: 'Apache-2.0 stub\n',
   };
 }
@@ -801,7 +804,7 @@ runFixture(
   (docs) => {
     docs['SECURITY.md'] =
       'Release Workflow Posture. Tag-only trigger. GitHub Environment approval. ' +
-      'Optional Marketplace and Open VSX paths via Personal Access Token secrets. ' +
+      'Publishing credentials remain isolated. Initial Marketplace publication uses one preverified VSIX. Open VSX remains separately authorized. ' +
       'We use OIDC publishing to the Marketplace automatically.\n';
   },
   (result) => {
