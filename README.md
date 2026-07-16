@@ -6,7 +6,9 @@
 > source and accuracy metadata, surfaced in plain language, and missing or stale
 > data is shown plainly.
 
-**Status: pre-release.** Apache-2.0 licensed.
+**Status: publicly available through the Visual Studio Marketplace and GitHub
+Releases.** TokenGauge is early-stage, actively maintained, and Apache-2.0
+licensed.
 
 ![TokenGauge — a native multi-agent gauge cockpit for AI coding tool status in VS Code](docs/images/tokengauge-hero.png)
 
@@ -68,7 +70,7 @@ a configured Claude statusLine snapshot and/or the explicit Codex probe opt-in.
 The local Claude `stats-cache.json` cache (per-model cost and model info) is
 read only when the Claude card is visible, as described under [Sources](#sources).
 
-1. For pre-release review or contributor testing, install the packaged VSIX locally, then run **TokenGauge: Open Cockpit**.
+1. After installing TokenGauge, run **TokenGauge: Open Cockpit** from the Command Palette.
 2. Run **TokenGauge: Configure Cockpit** and choose **Claude settings** or
    **Codex settings**. Configure Cockpit groups provider setup and card
    visibility together, opens filtered Settings pages, and never changes a value
@@ -906,21 +908,35 @@ TokenGauge is local-first and native-only. It persists **no usage data**. Native
 
 ## Installation
 
-Official TokenGauge releases are distributed through GitHub Releases: a tagged
-release attaches a packaged VSIX, a SHA-256 checksum, and verification
-instructions.
+Install TokenGauge from the Visual Studio Marketplace:
 
-For local review or contributor testing before the first public release:
+TokenGauge on the Visual Studio Marketplace:
+<https://marketplace.visualstudio.com/items?itemName=gares-extensions.tokengauge-vscode>
 
-1. Build or obtain the local `.vsix` from this workspace.
-2. Verify the checksum if a `.sha256` file is provided, for example `shasum -a 256 tokengauge-vscode-<version>.vsix`.
+From a terminal:
+
+```bash
+code --install-extension gares-extensions.tokengauge-vscode
+```
+
+Or open the Extensions view in Visual Studio Code and search for:
+
+```text
+@id:gares-extensions.tokengauge-vscode
+```
+
+Verified VSIX artifacts and checksums are also available through the GitHub Release page:
+<https://github.com/Gares95/tokengauge/releases>.
+
+To install a verified VSIX manually:
+
+1. Download the packaged `.vsix` and matching checksum from the release page.
+2. Verify the checksum, for example `shasum -a 256 tokengauge-vscode-<version>.vsix`.
 3. In VS Code, run **Extensions: Install from VSIX...** and select the local file.
 
-Official TokenGauge releases and verified VSIX artifacts are published through
-this GitHub repository. Visual Studio Marketplace availability, when active,
-uses the permanent extension identity `gares-extensions.tokengauge-vscode`.
-Open VSX remains optional and separately authorized; see [SECURITY.md](SECURITY.md)
-for the release and publishing posture.
+TokenGauge's permanent Visual Studio Marketplace extension identity is
+`gares-extensions.tokengauge-vscode`. Open VSX remains optional and separately
+authorized; see [SECURITY.md](SECURITY.md) for the release and publishing posture.
 
 **Documentation note.** The packaged VSIX ships this README, the CHANGELOG, the
 LICENSE, and THIRD_PARTY_NOTICES.md. Linked documents such as [PRIVACY.md](PRIVACY.md),
