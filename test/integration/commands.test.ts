@@ -14,7 +14,7 @@ import {
 } from '../../src/commands/configureCockpit';
 import type { TokenGaugeTestApi } from '../../src/extension';
 
-const EXTENSION_ID = 'tokengauge.tokengauge-vscode';
+const EXTENSION_ID = 'gares-extensions.tokengauge-vscode';
 const CONFIGURE_COCKPIT_COMMAND = 'tokenGauge.configureCockpit';
 
 // The privacy-sensitive defaults that must remain untouched after invocation.

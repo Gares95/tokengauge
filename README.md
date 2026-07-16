@@ -32,7 +32,7 @@ or transcripts.
 
 - VS Code 1.95 or newer, local or remote (WSL, Remote-SSH, Dev Containers; see the Remote section below).
 - For the Claude card: Claude Code running as a **CLI** in a terminal (any terminal, including the VS Code integrated terminal), plus a small statusLine writer script. The primary setup below uses a Node.js writer so it does not need `jq`, `sha256sum`, `chmod`, or a shell-script shebang.
-- For the Codex card: the Codex CLI installed and signed in on the same side as TokenGauge, plus the explicit probe opt-in. Codex support is experimental and limited to the app-server response shape this TokenGauge version recognizes.
+- For the Codex card: the Codex CLI installed and signed in on the same side as TokenGauge, plus the explicit probe opt-in. Codex support is experimental and limited to the short and weekly app-server usage-window shapes this TokenGauge version recognizes.
 
 **Terminal vs. VS Code extension sessions**
 
@@ -43,7 +43,7 @@ or transcripts.
 
 - Claude Code reports the 5h/weekly `rate_limits` statusLine fields only for Claude.ai subscription (Pro/Max) sessions, and only after the session's first response. API-key, Console, or third-party-provider usage may never produce those fields; the Claude card then shows an honest waiting/incomplete state. That is expected behavior, not a fault.
 - Different subscription tiers only change how fast the same percentages move. TokenGauge displays exactly the provider-reported percentages; it never knows or guesses a plan's absolute quota.
-- Codex support is experimental and opt-in. TokenGauge asks the local `codex app-server` for account rate-limit information. This version recognizes the tested 5-hour and 7-day account-window shape. If your Codex version, plan, login mode, API-key setup, or app-server response reports different buckets, TokenGauge shows Codex as unavailable or unsupported instead of guessing.
+- Codex support is experimental and opt-in. TokenGauge asks the local `codex app-server` for account rate-limit information. Codex may report a short usage window, a weekly usage window, or both; TokenGauge displays the recognized windows, promotes Weekly to the primary meter when the short window is absent, and does not fabricate omitted values. If your Codex version, plan, login mode, API-key setup, or app-server response reports neither recognized window, TokenGauge shows Codex as unavailable or unsupported instead of guessing.
 
 TokenGauge visualizes limits. It never enforces them, blocks requests, or sends alerts.
 
@@ -53,8 +53,8 @@ TokenGauge visualizes limits. It never enforces them, blocks requests, or sends 
 |-------|---------------------|
 | Claude Code CLI with statusLine | Supported when your statusLine writer produces the documented snapshot. |
 | Claude Code VS Code graphical panel only | Not read directly. Panel usage may count toward account limits, but TokenGauge updates only when a CLI statusLine snapshot is written. |
-| Codex CLI/app-server | Experimental, opt-in, and limited to the tested account-window response shape. |
-| Codex API-key or different bucket shapes | May be unavailable or unsupported; TokenGauge does not guess or show Codex cost. |
+| Codex CLI/app-server | Experimental, opt-in, and limited to recognized short and weekly account-window responses. |
+| Codex API-key or unrecognized bucket shapes | May be unavailable or unsupported; TokenGauge does not guess or show Codex cost. |
 | Terminal text or inline status lines | Not scraped for either provider. |
 | Multiple Codex sessions | Not session-tracked; the Codex card shows account-level rate-limit windows reported by the local app-server. |
 
@@ -797,9 +797,10 @@ and is native-first: it does not scan your conversation logs by default.
   per-model cost and model information from the local `stats-cache.json` cache.
 - **Codex native app-server probe.** When you explicitly opt in, TokenGauge asks the
   local `codex app-server` for account-level rate-limit windows as reported by that
-  app-server. This version recognizes the tested 5-hour and 7-day account-window
-  shape. The probe is off by default; nothing is spawned while it is off or while
-  the Codex card is hidden.
+  app-server. TokenGauge recognizes short and weekly windows independently,
+  displays whichever recognized windows are available, and promotes Weekly to the
+  primary meter when the short window is absent. The probe is off by default;
+  nothing is spawned while it is off or while the Codex card is hidden.
 - **Per-agent limit gauges.** Shows 5h, weekly, reset timing, risk state, and context only
   where the native source exposes it. Missing context reads unavailable rather than being
   fabricated.
@@ -852,10 +853,12 @@ shell/common user-bin discovery, and an NVM fallback), then sends a structured
 app-server request. Raw executable paths are never shown in UI/diagnostics. The
 probe reads account-level rate-limit windows as reported by the local Codex
 app-server, not a specific terminal or IDE session. The app-server protocol is
-experimental (verified against codex-cli 0.137.0); if a Codex update, plan, login
-mode, API-key setup, or app-server response reports a different bucket shape,
-TokenGauge fails closed and the card reads unavailable or unsupported rather than
-showing an unverified number.
+experimental (verified against codex-cli 0.137.0); if a Codex update, plan,
+login mode, API-key setup, or app-server response omits one recognized window,
+TokenGauge displays the remaining recognized window without fabricating the
+missing value. If the response contains neither recognized window, TokenGauge
+fails closed and the card reads unavailable or unsupported rather than showing an
+unverified number.
 
 When no native data is available, TokenGauge shows an honest unknown/unavailable state
 rather than inferring a number from logs.
@@ -903,7 +906,9 @@ TokenGauge is local-first and native-only. It persists **no usage data**. Native
 
 ## Installation
 
-TokenGauge is currently pre-release. The planned first distribution path is **GitHub Release first**: a tagged release will attach a packaged VSIX, a SHA-256 checksum, and verification instructions.
+Official TokenGauge releases are distributed through GitHub Releases: a tagged
+release attaches a packaged VSIX, a SHA-256 checksum, and verification
+instructions.
 
 For local review or contributor testing before the first public release:
 
@@ -911,10 +916,14 @@ For local review or contributor testing before the first public release:
 2. Verify the checksum if a `.sha256` file is provided, for example `shasum -a 256 tokengauge-vscode-<version>.vsix`.
 3. In VS Code, run **Extensions: Install from VSIX...** and select the local file.
 
-Marketplace and Open VSX distribution are not available yet. They are optional, PAT-gated paths that may be added later; see [SECURITY.md](SECURITY.md) for the release and publishing posture.
+Official TokenGauge releases and verified VSIX artifacts are published through
+this GitHub repository. Visual Studio Marketplace availability, when active,
+uses the permanent extension identity `gares-extensions.tokengauge-vscode`.
+Open VSX remains optional and separately authorized; see [SECURITY.md](SECURITY.md)
+for the release and publishing posture.
 
-**Documentation note.** The packaged VSIX ships this README, the CHANGELOG, and
-the LICENSE. Linked documents such as [PRIVACY.md](PRIVACY.md),
+**Documentation note.** The packaged VSIX ships this README, the CHANGELOG, the
+LICENSE, and THIRD_PARTY_NOTICES.md. Linked documents such as [PRIVACY.md](PRIVACY.md),
 [ACCURACY.md](ACCURACY.md), [SECURITY.md](SECURITY.md), and
 [CONTRIBUTING.md](CONTRIBUTING.md) are not packaged: when the VSIX is built,
 `vsce` rewrites these relative links into absolute GitHub URLs on the
@@ -1080,7 +1089,7 @@ When the Codex app-server probe is enabled and the Codex card is visible, TokenG
 
 - The card only reads **fresh** when it is backed by a **recent** app-server probe (within the roughly 2-minute sample-age bound described under [Status bar, badges, and timing](#status-bar-badges-and-timing)). A held sample past that bound is labeled **"Stale · showing last-known"**; the value is kept but no longer claims to be current.
 - Use the inline statusline as a **manual cross-check only**, and run `/status` in Codex to refresh it before comparing.
-- Run **TokenGauge: Refresh Native Status (Cockpit)** to force a fresh app-server probe (only when the probe is enabled and the Codex card is visible), then **TokenGauge: Cockpit Diagnostics**. The diagnostics show, in redacted boolean/rule-id form, the last app-server probe age, the freshness tier (fresh / retained / stale), which window is in use (5h vs 7-day, when available), whether the reset time is known, whether your last manual Refresh actually forced a probe, and whether a lower lagging probe was conservatively held back. Those fields tell you whether a mismatch is inline-statusline lag, probe lag, a retained sample, the wrong window, an unsupported response shape, or something to report without exposing any raw account, session, path, or probe payload.
+- Run **TokenGauge: Refresh Native Status (Cockpit)** to force a fresh app-server probe (only when the probe is enabled and the Codex card is visible), then **TokenGauge: Cockpit Diagnostics**. The diagnostics show, in redacted boolean/rule-id form, the last app-server probe age, the freshness tier (fresh / retained / stale), which recognized windows are available, whether the reset time is known, whether your last manual Refresh actually forced a probe, and whether a lower lagging probe was conservatively held back. Those fields tell you whether a mismatch is inline-statusline lag, probe lag, a retained sample, a missing or unsupported window, an unsupported response shape, or something to report without exposing any raw account, session, path, or probe payload.
 
 
 ## Remote, WSL, Dev Containers, and SSH
@@ -1226,7 +1235,7 @@ If you never configure the statusLine integration, none of the above applies.
 
 - The native cockpit reflects whatever the native agent surfaces expose locally. The Claude statusLine snapshot is read only if your own statusLine writer produces it, and the Codex native status probe is **opt-in and off by default**.
 - Claude 5h/weekly gauges require a Claude.ai subscription (Pro/Max) session; API-key, Console, or third-party-provider usage has no such windows to display.
-- Codex support is experimental and opt-in. TokenGauge asks the local `codex app-server` for account rate-limit information. This version recognizes the tested 5-hour and 7-day account-window shape. If your Codex version, plan, login mode, API-key setup, or app-server response reports different buckets, TokenGauge shows Codex as unavailable or unsupported instead of guessing.
+- Codex support is experimental and opt-in. TokenGauge asks the local `codex app-server` for account rate-limit information. TokenGauge recognizes short and weekly account-window responses independently; a weekly-only response remains usable, and a short-only response remains usable. If your Codex version, plan, login mode, API-key setup, or app-server response reports neither recognized window, TokenGauge shows Codex as unavailable or unsupported instead of guessing.
 - TokenGauge is not a Codex API billing meter and does not show Codex cost. Codex session context is unavailable in the tested app-server response, so TokenGauge shows Codex `Context unavailable` and `cost unknown` rather than fabricating them.
 - Anthropic does not publish a public tokenizer for current Claude models. TokenGauge does not display token counts and does not reconstruct them from logs; the native percentages and cost it shows come from the agent's own statusLine/stats-cache surfaces and are labeled `proxy_reported` (never `exact`).
 - Cost is shown as `cost unknown` whenever the native source does not expose it.

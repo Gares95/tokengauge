@@ -38,7 +38,7 @@ export interface CockpitProviderDiagnosticsSnapshot {
   readonly lastPostAtMs: number | undefined;
 }
 
-const EXTENSION_SETTINGS_FILTER = '@ext:tokengauge.tokengauge-vscode';
+const EXTENSION_SETTINGS_FILTER = '@ext:gares-extensions.tokengauge-vscode';
 
 export interface GaugeCockpitViewProviderDeps {
   readonly requestRefresh: () => Promise<void> | void;

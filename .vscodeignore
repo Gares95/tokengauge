@@ -6,6 +6,7 @@
 !README.md
 !LICENSE
 !CHANGELOG.md
+!THIRD_PARTY_NOTICES.md
 !resources/tokengauge-view.svg
 !resources/tokengauge-icon.png
 dist/**/*.map

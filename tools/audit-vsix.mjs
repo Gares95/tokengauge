@@ -38,10 +38,37 @@ const ALLOWED_TOP_LEVEL = [
   'extension/readme.md',
   'extension/license',
   'extension/changelog.md',
+  'extension/third_party_notices.md',
   'extension.vsixmanifest',
   '[content_types].xml',
 ];
+const EXPECTED_ENTRY_COUNT = 12;
 const REQUIRED_ENTRIES = [
+  {
+    name: 'package-json',
+    pathLabel: 'extension/package.json',
+    test: (entryPathLC) => entryPathLC === 'extension/package.json',
+  },
+  {
+    name: 'readme',
+    pathLabel: 'extension/readme.md',
+    test: (entryPathLC) => entryPathLC === 'extension/readme.md',
+  },
+  {
+    name: 'license',
+    pathLabel: 'extension/LICENSE.txt',
+    test: (entryPathLC) => entryPathLC === 'extension/license.txt',
+  },
+  {
+    name: 'changelog',
+    pathLabel: 'extension/CHANGELOG.md',
+    test: (entryPathLC) => entryPathLC === 'extension/changelog.md',
+  },
+  {
+    name: 'third-party-notices',
+    pathLabel: 'extension/THIRD_PARTY_NOTICES.md',
+    test: (entryPathLC) => entryPathLC === 'extension/third_party_notices.md',
+  },
   {
     name: 'extension-bundle',
     pathLabel: 'extension/dist/extension.js',
@@ -67,6 +94,11 @@ const REQUIRED_ENTRIES = [
     pathLabel: 'extension/resources/tokengauge-view.svg',
     test: (entryPathLC) => entryPathLC === 'extension/resources/tokengauge-view.svg',
   },
+  {
+    name: 'marketplace-icon',
+    pathLabel: 'extension/resources/tokengauge-icon.png',
+    test: (entryPathLC) => entryPathLC === 'extension/resources/tokengauge-icon.png',
+  },
 ];
 
 // The packaged cockpit bundle must CONTAIN the
@@ -82,6 +114,7 @@ const REQUIRED_CONTENT = [
     sentinels: ['Near limit', 'Welcome to TokenGauge', '5-hour window'],
   },
 ];
+const OBSOLETE_EXTENSION_ID = /\btokengauge\.tokengauge-vscode\b/;
 
 function dotDir(name) {
   return `extension/.${name}/`;
@@ -287,6 +320,10 @@ function scanContent(entry, violations) {
     return;
   }
 
+  if (OBSOLETE_EXTENSION_ID.test(content)) {
+    violations.push({ ruleName: 'obsolete-extension-id', entryPath: entry.entryPath });
+  }
+
   for (const pattern of [...FORBIDDEN_CONTENT_PATTERNS, PROMPT_SHAPE_PATTERN]) {
     if (pattern.skipExts?.includes(extension)) {
       continue;
@@ -297,6 +334,15 @@ function scanContent(entry, violations) {
   }
 }
 
+function scanEntryCount(entries, violations) {
+  if (entries.length !== EXPECTED_ENTRY_COUNT) {
+    violations.push({
+      ruleName: 'unexpected-entry-count',
+      entryPath: `expected ${EXPECTED_ENTRY_COUNT}, got ${entries.length}`,
+    });
+  }
+}
+
 function scanRequiredEntries(entries, violations) {
   const lowerEntryPaths = entries.map((entry) => entry.entryPath.toLowerCase());
   for (const required of REQUIRED_ENTRIES) {
@@ -304,6 +350,50 @@ function scanRequiredEntries(entries, violations) {
       violations.push({
         ruleName: `missing-${required.name}`,
         entryPath: required.pathLabel,
+      });
+    }
+  }
+}
+
+function scanPackageIdentity(entries, violations) {
+  const packageEntry = entries.find(
+    (entry) => entry.entryPath.toLowerCase() === 'extension/package.json',
+  );
+  if (packageEntry === undefined) {
+    return;
+  }
+
+  const expected = JSON.parse(readFileSync('package.json', 'utf8'));
+  let actual;
+  try {
+    actual = JSON.parse(packageEntry.buffer.toString('utf8'));
+  } catch {
+    violations.push({ ruleName: 'invalid-package-json', entryPath: packageEntry.entryPath });
+    return;
+  }
+
+  for (const field of ['publisher', 'name', 'version']) {
+    if (actual[field] !== expected[field]) {
+      violations.push({ ruleName: `package-${field}-mismatch`, entryPath: packageEntry.entryPath });
+    }
+  }
+
+  const manifestEntry = entries.find(
+    (entry) => entry.entryPath.toLowerCase() === 'extension.vsixmanifest',
+  );
+  if (manifestEntry === undefined) {
+    return;
+  }
+
+  const manifest = manifestEntry.buffer.toString('utf8');
+  if (/<Identity\b/.test(manifest)) {
+    if (
+      !manifest.includes(`Id="${expected.name}"`) ||
+      !manifest.includes(`Publisher="${expected.publisher}"`)
+    ) {
+      violations.push({
+        ruleName: 'vsixmanifest-identity-mismatch',
+        entryPath: manifestEntry.entryPath,
       });
     }
   }
@@ -340,8 +430,10 @@ async function main() {
     scanPath(entry.entryPath, violations);
     scanContent(entry, violations);
   }
+  scanEntryCount(entries, violations);
   scanRequiredEntries(entries, violations);
   scanRequiredContent(entries, violations);
+  scanPackageIdentity(entries, violations);
 
   if (violations.length > 0) {
     console.error('VSIX audit failed:');

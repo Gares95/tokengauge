@@ -286,7 +286,7 @@ suite('GaugeCockpitViewProvider', () => {
 
     assert.equal(calls.length, 1);
     assert.equal(calls[0]?.command, 'workbench.action.openSettings');
-    assert.equal(calls[0]?.args[0], '@ext:tokengauge.tokengauge-vscode');
+    assert.equal(calls[0]?.args[0], '@ext:gares-extensions.tokengauge-vscode');
   });
 
   // A targeted openSettings focuses the EXACT setting so the Codex probe

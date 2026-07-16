@@ -26,13 +26,15 @@ The `package:vsix` npm script passes `--allow-missing-repository` defensively so
 
 ## Release Workflow Posture
 
-TokenGauge's planned release posture is **GitHub Release first**. The default output of a release will be a VSIX attached to a GitHub Release together with its SHA-256 checksum and install/verification instructions.
+TokenGauge's release posture is **GitHub Release first**. The default output of a release is a VSIX attached to a GitHub Release together with its SHA-256 checksum and install/verification instructions.
 
 **The release workflow itself is deferred until release time.** This repository currently ships a verify-only CI workflow and no publish-capable automation. A static gate (`check:release-workflow`) enforces exactly that: while no release workflow exists it verifies CI stays verify-only, and the moment a release workflow is added it enforces the full locked posture below.
 
 - **Tag-only trigger.** The release workflow runs only on `v*` tags. It never runs on pull requests, and no publish-capable step runs on a pull request.
 - **GitHub Environment approval.** Build and audit jobs may run on a tag before approval, but any GitHub Release asset creation or publish-capable job waits for required-reviewer approval through a protected GitHub Environment.
 - **SHA-pinned release actions.** Third-party GitHub Actions used in the release workflow are pinned to commit SHAs.
-- **Optional Marketplace and Open VSX paths.** Publishing to the VS Code Marketplace (via `vsce`) and to Open VSX (via `ovsx`) are OPTIONAL, secret-gated paths. They use Environment-protected Personal Access Token secrets and never run automatically just because a secret is present.
-- **No unsupported publishing claim.** TokenGauge makes no Marketplace, Open VSX, or OIDC publishing claim that the workflow does not actually satisfy. TokenGauge does not use or claim OIDC for VS Code Marketplace publishing; Marketplace and Open VSX publishing, when performed, are PAT-gated.
+- **Credential isolation.** Publishing credentials must never enter the repository, issues, chats, planning records, CI logs, shell history, release assets, or package contents. Do not ask contributors to provide secret values, recovery information, session cookies, or token examples.
+- **Manual first Marketplace publication.** Initial Visual Studio Marketplace publication uses owner-authenticated manual upload of one preverified VSIX. Future automated Marketplace publishing, if separately approved, must follow the official Marketplace authentication guidance current at that time.
+- **Open VSX is separate.** Open VSX credentials and publication remain separately authorized. No Open VSX credential may be added merely because Marketplace publication is approved.
+- **No unsupported publishing claim.** TokenGauge makes no Marketplace, Open VSX, or automated publishing claim that the workflow does not actually satisfy.
 - **Best-effort reproducibility.** The workflow performs a best-effort reproducibility check; unexplained drift fails the workflow, while documented exception categories (such as timestamps or tool metadata) may be allowed.

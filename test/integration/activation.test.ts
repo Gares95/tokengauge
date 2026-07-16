@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import { TOKENGAUGE_KEYS } from '../../src/config/keys';
 import type { TokenGaugeTestApi } from '../../src/extension';
 
-const EXTENSION_ID = 'tokengauge.tokengauge-vscode';
+const EXTENSION_ID = 'gares-extensions.tokengauge-vscode';
 const ACTIVATION_CI_CEILING_MS = 400;
 const ACTIVATION_MANUAL_GATE_MS = 200;
 const RAW_LEAK_NEEDLES = [

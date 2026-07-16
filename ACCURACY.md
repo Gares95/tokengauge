@@ -38,7 +38,7 @@ guess.
 ### Native source availability by agent
 
 - **Claude Code**: `statusline_snapshot` is the live native source: session/5h %, weekly/7d %, resets, model, and cost come from a guarded local statusLine snapshot. `stats-cache.json` provides native per-model cost and model information. Both are PRIMARY. TokenGauge does not display token counts.
-- **Codex**: `codex_status_snapshot` comes from the explicit opt-in local `codex app-server` structured request. This version recognizes the tested 5-hour and 7-day account-window shape. If your Codex version, plan, login mode, API-key setup, or app-server response reports different buckets, TokenGauge shows Codex as unavailable or unsupported instead of guessing. It does not expose session context or cost today, so TokenGauge shows those fields as unavailable rather than fabricating them. TokenGauge never scrapes Codex terminal or inline statusline output.
+- **Codex**: `codex_status_snapshot` comes from the explicit opt-in local `codex app-server` structured request. Known Codex windows are independently optional: short-only, weekly-only, and dual-window states are supported when the native response exposes recognized fields. If neither recognized window is present, TokenGauge shows Codex as unavailable or unsupported instead of guessing. Missing window data is never treated as zero, unlimited, or fabricated from another window. It does not expose session context or cost today, so TokenGauge shows those fields as unavailable rather than fabricating them. TokenGauge never scrapes Codex terminal or inline statusline output, and future native format changes may require maintenance when providers change their structures.
 
 ## Source kinds
 

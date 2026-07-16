@@ -11,7 +11,7 @@
 import * as assert from 'node:assert/strict';
 import * as vscode from 'vscode';
 
-const EXTENSION_ID = 'tokengauge.tokengauge-vscode';
+const EXTENSION_ID = 'gares-extensions.tokengauge-vscode';
 
 interface ManifestCommand {
   command?: string;

@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { createWriteStream, mkdtempSync, rmSync } from 'node:fs';
+import { createWriteStream, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import archiver from 'archiver';
@@ -8,12 +8,20 @@ const repoRoot = path.resolve(import.meta.dirname, '..');
 const auditScript = path.join(repoRoot, 'tools/audit-vsix.mjs');
 const apiKey = 'sk-' + '1234567890' + 'abcdef' + '1234567890' + 'abcdef';
 const localArtifactPath = 'extension/.' + 'plan' + 'ning/PROJECT.md';
+const rootPackageJson = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
+const packageEntryContent = JSON.stringify({
+  name: rootPackageJson.name,
+  version: rootPackageJson.version,
+  publisher: rootPackageJson.publisher,
+  engines: rootPackageJson.engines,
+  main: rootPackageJson.main,
+  displayName: rootPackageJson.displayName,
+});
 
 const baseEntries = [
   {
     path: 'extension/package.json',
-    content:
-      '{"name":"x","version":"0.0.1","publisher":"p","engines":{"vscode":"^1.95.0"},"main":"./dist/extension.js","displayName":"x"}',
+    content: packageEntryContent,
   },
   { path: 'extension/dist/extension.js', content: 'module.exports = {};\n' },
   {
@@ -32,10 +40,18 @@ const baseEntries = [
     path: 'extension/resources/tokengauge-view.svg',
     content: '<svg xmlns="http://www.w3.org/2000/svg"/>\n',
   },
+  {
+    path: 'extension/resources/tokengauge-icon.png',
+    content: 'png fixture\n',
+  },
   { path: 'extension/README.md', content: '# x\n' },
-  { path: 'extension/LICENSE', content: 'Apache-2.0 stub\n' },
+  { path: 'extension/LICENSE.txt', content: 'Apache-2.0 stub\n' },
   { path: 'extension/CHANGELOG.md', content: '# Changelog\n\n## Unreleased\n' },
-  { path: 'extension.vsixmanifest', content: '<?xml version="1.0"?><PackageManifest/>' },
+  { path: 'extension/THIRD_PARTY_NOTICES.md', content: '# Third-Party Notices\n' },
+  {
+    path: 'extension.vsixmanifest',
+    content: `<?xml version="1.0"?><PackageManifest><Metadata><Identity Id="${rootPackageJson.name}" Publisher="${rootPackageJson.publisher}" Version="${rootPackageJson.version}"/></Metadata></PackageManifest>`,
+  },
   { path: '[Content_Types].xml', content: '<?xml version="1.0"?><Types/>' },
 ];
 
