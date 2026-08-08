@@ -28,6 +28,7 @@ const FIXTURE = JSON.parse(
 ) as {
   initialize: Record<string, unknown>;
   rateLimits: Record<string, unknown>;
+  rateLimitsByLimitId?: Record<string, unknown>;
 };
 
 // A recording fake runner. It captures every JSON-RPC object written to the
@@ -209,6 +210,64 @@ suite('CodexAppServerProbe: bounded JSON-RPC probe', () => {
     if (!result.ok) return;
     assert.equal(result.primary, undefined);
     assert.equal(result.secondary?.windowDurationMins, 10080);
+  });
+
+  test('Top-level rateLimitsByLimitId windows are used when direct slots are absent', async () => {
+    const { probe } = makeProbe({
+      rateLimitsResult: {
+        rateLimitsByLimitId: {
+          'bucket-a': {
+            primary: { usedPercent: 6, windowDurationMins: 300, resetsAt: 1781212269 },
+            secondary: { usedPercent: 1, windowDurationMins: 10080, resetsAt: 1781799069 },
+          },
+        },
+      },
+    });
+    const result = await probe.run();
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.primary?.windowDurationMins, 300);
+    assert.equal(result.secondary?.windowDurationMins, 10080);
+  });
+
+  test('Nested rateLimitsByLimitId windows are used when direct slots have no known window', async () => {
+    const { probe } = makeProbe({
+      rateLimitsResult: {
+        rateLimits: {
+          primary: { usedPercent: 2, windowDurationMins: 60, resetsAt: 1781212269 },
+          secondary: null,
+          rateLimitsByLimitId: {
+            'bucket-a': {
+              secondary: { usedPercent: 1, windowDurationMins: 10080, resetsAt: 1781799069 },
+            },
+          },
+        },
+      },
+    });
+    const result = await probe.run();
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.primary, undefined);
+    assert.equal(result.secondary?.windowDurationMins, 10080);
+  });
+
+  test('Duplicate recognized fallback windows fail closed', async () => {
+    const { probe } = makeProbe({
+      rateLimitsResult: {
+        rateLimitsByLimitId: {
+          'bucket-a': {
+            primary: { usedPercent: 6, windowDurationMins: 300, resetsAt: 1781212269 },
+          },
+          'bucket-b': {
+            secondary: { usedPercent: 7, windowDurationMins: 300, resetsAt: 1781212369 },
+          },
+        },
+      },
+    });
+    const result = await probe.run();
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.equal(result.reason, 'codex_protocol_drift');
   });
 
   test('No recognized window → codex_protocol_drift', async () => {
