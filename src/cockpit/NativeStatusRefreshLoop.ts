@@ -42,6 +42,12 @@ export const DEFAULT_DEBOUNCE_MS = 250;
 
 export type RefreshTrigger = 'manual' | 'poll' | 'watch';
 
+export interface RefreshTransformContext {
+  readonly trigger: RefreshTrigger;
+  readonly probeAttempted: boolean;
+  readonly manualProbeRefresh: boolean;
+}
+
 // Minimal structural watcher contract — chokidar v4's FSWatcher satisfies it.
 // Accepting the narrow shape keeps the watch path unit-testable without real
 // filesystem timing and without depending on chokidar's full type surface.
@@ -94,7 +100,10 @@ export interface NativeStatusRefreshLoopOptions {
   // NOT spawn or trigger a probe (the spawn stays gated behind runProbe, probe
   // ticks only). It is treated as TOTAL: a throw is caught, the loop falls back to
   // the untransformed merged set, records cockpit-refresh-failed, and keeps running.
-  transformCandidates?(merged: readonly SourceCandidate[]): readonly SourceCandidate[];
+  transformCandidates?(
+    merged: readonly SourceCandidate[],
+    context: RefreshTransformContext,
+  ): readonly SourceCandidate[];
   // 10-15s after clamping; every tick calls refresh('poll').
   readonly pollIntervalSeconds: number;
   // Seams (production defaults; tests substitute).
@@ -266,7 +275,11 @@ export function createNativeStatusRefreshLoop(
     let transformed = merged;
     if (options.transformCandidates !== undefined) {
       try {
-        transformed = options.transformCandidates(merged);
+        transformed = options.transformCandidates(merged, {
+          trigger,
+          probeAttempted: willProbe,
+          manualProbeRefresh: trigger === 'manual' && willProbe,
+        });
       } catch {
         transformed = merged;
         lastRefreshRuleId = 'cockpit-refresh-failed';

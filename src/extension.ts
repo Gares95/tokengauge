@@ -407,7 +407,10 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
       // The single stabilization pass runs LAST (reset-expiry +
       // deterministic reason arbitration) so the final per-card state is decided
       // once, after every gate. Also in-memory only — no spawn, no log read.
-      transformCandidates: (merged) => stabilizationPass.step(retentionGate.step(merged)),
+      transformCandidates: (merged, context) =>
+        stabilizationPass.step(
+          retentionGate.step(merged, { resetRetainedProbeState: context.manualProbeRefresh }),
+        ),
       pollIntervalSeconds: ((): number => {
         // Mirrors the manifest default (15); the loop additionally clamps to
         // its 10-15s file-poll bounds, so a bad type can never widen the cadence.

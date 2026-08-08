@@ -27,6 +27,7 @@ import {
   type CockpitWatcherLike,
   createNativeStatusRefreshLoop,
   PROBE_MIN_INTERVAL_MS,
+  type RefreshTransformContext,
 } from '../../../src/cockpit/NativeStatusRefreshLoop';
 import type { CockpitFieldReason } from '../../../src/core/cockpit/CockpitState';
 import type { SourceCandidate } from '../../../src/core/cockpit/SourcePriorityResolver';
@@ -851,6 +852,52 @@ suite('NativeStatusRefreshLoop — per-tick transformCandidates seam', () => {
     loop.dispose();
   });
 
+  test('Manual probe refresh passes reset context; poll ticks do not', async () => {
+    const clock = fakeClock();
+    const timers = fakeTimers();
+    const contexts: RefreshTransformContext[] = [];
+    const loop = createNativeStatusRefreshLoop(
+      baseOptions({
+        now: clock.now,
+        statFile: async () => ({ isDirectory: () => false }),
+        watcherFactory: (): CockpitWatcherLike => new FakeWatcher(),
+        setIntervalFn: timers.setIntervalFn,
+        clearIntervalFn: timers.clearIntervalFn,
+        probeEnabled: true,
+        gatherCandidates: async (): Promise<readonly SourceCandidate[]> => [claudeCandidate()],
+        runProbe: async (): Promise<readonly SourceCandidate[]> => [],
+        transformCandidates: (
+          merged: readonly SourceCandidate[],
+          context: RefreshTransformContext,
+        ): readonly SourceCandidate[] => {
+          contexts.push(context);
+          return merged;
+        },
+      }),
+    );
+    await settle();
+    contexts.length = 0;
+
+    await loop.refresh('manual');
+    await settle();
+    assert.deepEqual(contexts.at(-1), {
+      trigger: 'manual',
+      probeAttempted: true,
+      manualProbeRefresh: true,
+    });
+
+    contexts.length = 0;
+    clock.advance(5_000);
+    timers.tick();
+    await settle();
+    assert.deepEqual(contexts.at(-1), {
+      trigger: 'poll',
+      probeAttempted: false,
+      manualProbeRefresh: false,
+    });
+    loop.dispose();
+  });
+
   test('A throwing transform degrades to the untransformed merged set and the loop keeps running', async () => {
     const diagnostics = recordingDiagnostics();
     const timers = fakeTimers();
@@ -980,8 +1027,11 @@ suite('NativeStatusRefreshLoop × CodexProbeRetentionGate cadence', () => {
           probeIdx += 1;
           return out;
         },
-        transformCandidates: (merged: readonly SourceCandidate[]): readonly SourceCandidate[] =>
-          gate.step(merged),
+        transformCandidates: (
+          merged: readonly SourceCandidate[],
+          context: RefreshTransformContext,
+        ): readonly SourceCandidate[] =>
+          gate.step(merged, { resetRetainedProbeState: context.manualProbeRefresh }),
         buildViewModels: buildGaugeCardViewModels,
         post: (vms: GaugeCardViewModel[]): void => {
           opts.posts.push(vms);
@@ -1128,8 +1178,11 @@ suite('NativeStatusRefreshLoop × CodexProbeRetentionGate cadence', () => {
           probeAttempts += 1;
           return [validCodex({ sessionPct: 99, weeklyPct: 99 })];
         },
-        transformCandidates: (merged: readonly SourceCandidate[]): readonly SourceCandidate[] =>
-          gate.step(merged),
+        transformCandidates: (
+          merged: readonly SourceCandidate[],
+          context: RefreshTransformContext,
+        ): readonly SourceCandidate[] =>
+          gate.step(merged, { resetRetainedProbeState: context.manualProbeRefresh }),
         buildViewModels: buildGaugeCardViewModels,
         post: (vms: GaugeCardViewModel[]): void => {
           posts.push(vms);
@@ -1342,8 +1395,11 @@ suite('NativeStatusRefreshLoop × CodexProbeRetentionGate cadence', () => {
           probeIdx += 1;
           return out;
         },
-        transformCandidates: (merged: readonly SourceCandidate[]): readonly SourceCandidate[] =>
-          gate.step(merged),
+        transformCandidates: (
+          merged: readonly SourceCandidate[],
+          context: RefreshTransformContext,
+        ): readonly SourceCandidate[] =>
+          gate.step(merged, { resetRetainedProbeState: context.manualProbeRefresh }),
         buildViewModels: buildGaugeCardViewModels,
         // The real extension posts the SAME vm set to both surfaces; mirror that.
         post: (vms: GaugeCardViewModel[]): void => {
@@ -1432,8 +1488,11 @@ suite('NativeStatusRefreshLoop × CodexProbeRetentionGate cadence', () => {
           probeInvocations += 1;
           return [];
         },
-        transformCandidates: (merged: readonly SourceCandidate[]): readonly SourceCandidate[] =>
-          gate.step(merged),
+        transformCandidates: (
+          merged: readonly SourceCandidate[],
+          context: RefreshTransformContext,
+        ): readonly SourceCandidate[] =>
+          gate.step(merged, { resetRetainedProbeState: context.manualProbeRefresh }),
         buildViewModels: buildGaugeCardViewModels,
         post: (vms: GaugeCardViewModel[]): void => {
           posts.push(vms);
@@ -1523,7 +1582,47 @@ suite('NativeStatusRefreshLoop × CodexProbeRetentionGate cadence', () => {
     loop.dispose();
   });
 
-  test('(mr-fail) manual refresh probe FAILURE retains the value with a precise reason (no repaint-as-fresh)', async () => {
+  test('(mr-reset) manual refresh accepts a lower same-window Codex sample as current', async () => {
+    const clock = fakeClock();
+    const timers = fakeTimers();
+    const posts: GaugeCardViewModel[][] = [];
+    let probeAttempts = 0;
+    const resetAt = '2026-06-16T05:00:00.000Z';
+    const loop = buildLoop({
+      clock,
+      timers,
+      posts,
+      probeOutcomes: [
+        [validCodex({ sessionPct: 93, weeklyPct: 60 })],
+        [
+          {
+            ...validCodex({ sessionPct: 77, weeklyPct: 45 }),
+            session: { usedPct: 77, leftPct: 23, resetsAt: resetAt },
+            weekly: { usedPct: 45, leftPct: 55, resetsAt: resetAt },
+          },
+        ],
+      ],
+      onProbe: () => {
+        probeAttempts += 1;
+      },
+    });
+    await settle();
+    assert.equal(codexCard(posts.at(-1))?.session.usedPct, 93);
+    const before = probeAttempts;
+
+    posts.length = 0;
+    await loop.refresh('manual');
+    await settle();
+
+    assert.equal(probeAttempts - before, 1, 'manual refresh performs one fresh probe');
+    const codex = codexCard(posts.at(-1));
+    assert.equal(codex?.session.usedPct, 77, 'manual refresh shows the current lower 5h value');
+    assert.equal(codex?.weekly.usedPct, 45, 'manual refresh shows the current lower weekly value');
+    assert.equal(codex?.freshness, 'fresh');
+    loop.dispose();
+  });
+
+  test('(mr-fail) manual refresh probe FAILURE shows the blocker without a stale retained value', async () => {
     const clock = fakeClock();
     const timers = fakeTimers();
     const posts: GaugeCardViewModel[][] = [];
@@ -1533,7 +1632,7 @@ suite('NativeStatusRefreshLoop × CodexProbeRetentionGate cadence', () => {
       timers,
       posts,
       // First probe (startup) succeeds; the manual-refresh probe yields a failure
-      // blocker → the gate retains the last-known value degraded with a precise reason.
+      // blocker after the manual reset → the stale prior value is not retained.
       probeOutcomes: [
         [validCodex({ sessionPct: 91, weeklyPct: 50 })],
         [codexBlocker('codex_probe_failed')],
@@ -1549,17 +1648,9 @@ suite('NativeStatusRefreshLoop × CodexProbeRetentionGate cadence', () => {
     await settle();
     assert.equal(probeAttempts - before, 1, 'manual refresh still forces a real probe attempt');
     const codex = codexCard(posts.at(-1));
-    assert.equal(
-      codex?.session.usedPct,
-      91,
-      'value retained (never blanks) on a manual-probe failure',
-    );
+    assert.equal(codex?.session.usedPct, undefined, 'manual failure does not show stale usage');
     assert.notEqual(codex?.reason, 'no_source', 'a failure is never no_source');
-    assert.equal(
-      codex?.reason,
-      'codex_probe_temporarily_unavailable',
-      'a manual-probe failure surfaces a precise retained reason, not a silent fresh repaint',
-    );
+    assert.equal(codex?.reason, 'codex_probe_failed', 'the precise manual-probe failure stands');
     assert.notEqual(codex?.freshness, 'fresh', 'a failed manual probe is degraded, not bare fresh');
     loop.dispose();
   });
@@ -1591,8 +1682,11 @@ suite('NativeStatusRefreshLoop × CodexProbeRetentionGate cadence', () => {
           probeAttempts += 1;
           return [];
         },
-        transformCandidates: (merged: readonly SourceCandidate[]): readonly SourceCandidate[] =>
-          gate.step(merged),
+        transformCandidates: (
+          merged: readonly SourceCandidate[],
+          context: RefreshTransformContext,
+        ): readonly SourceCandidate[] =>
+          gate.step(merged, { resetRetainedProbeState: context.manualProbeRefresh }),
         buildViewModels: buildGaugeCardViewModels,
         post: (vms: GaugeCardViewModel[]): void => {
           posts.push(vms);
@@ -1626,8 +1720,11 @@ suite('NativeStatusRefreshLoop — stabilization pass (expiry + no-flap)', () =>
   function chain(clock: { now: () => Date }) {
     const gate = createCodexProbeRetentionGate({ probeEnabled: false, now: clock.now });
     const pass = createCockpitStabilizationPass({ now: clock.now });
-    return (merged: readonly SourceCandidate[]): readonly SourceCandidate[] =>
-      pass.step(gate.step(merged));
+    return (
+      merged: readonly SourceCandidate[],
+      context: RefreshTransformContext,
+    ): readonly SourceCandidate[] =>
+      pass.step(gate.step(merged, { resetRetainedProbeState: context.manualProbeRefresh }));
   }
 
   test('Expired 5h window → pending across the loop (not stale used%, not fresh, no risk)', async () => {
