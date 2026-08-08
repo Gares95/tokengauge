@@ -4,12 +4,13 @@
 // A bounded, non-interactive `codex app-server` stdio JSON-RPC exchange,
 // verified live on codex-cli 0.137.0: spawn → initialize →
 // initialized → account/rateLimits/read → ALWAYS kill. This version recognizes
-// the tested 5-hour and 7-day account-window response shapes independently and
-// maps any recognized window under sourceTier `codex_status_snapshot` at
-// confidence 'medium' (the app-server protocol is flagged [experimental] —
-// never 'high'). Unknown bucket shapes are ignored when at least one known
-// window is present; a response with no recognized window still fails closed
-// instead of being guessed.
+// the tested 5-hour and 7-day account-window response shapes independently,
+// including the alternate rateLimitsByLimitId bucket shape, and maps any
+// recognized window under sourceTier `codex_status_snapshot` at confidence
+// 'medium' (the app-server protocol is flagged [experimental] — never 'high').
+// Unknown bucket shapes are ignored when at least one known window is present; a
+// response with no recognized window still fails closed instead of being
+// guessed.
 //
 // Privacy + honesty invariants enforced here:
 //   - The runner is an injectable seam. Tests inject a fake runner so the REAL
@@ -137,18 +138,32 @@ const RateLimitWindowSchema = z.object({
   resetsAt: z.number().int().nonnegative().nullable().optional(),
 });
 
-const CodexRateLimitsSchema = z.object({
-  rateLimits: z
-    .object({
-      primary: RateLimitWindowSchema.nullable().optional(),
-      secondary: RateLimitWindowSchema.nullable().optional(),
-      planType: z.string().max(64).nullable().optional(),
-      rateLimitReachedType: z.string().max(64).nullable().optional(),
+const RateLimitBucketSchema = z
+  .object({
+    primary: RateLimitWindowSchema.nullable().optional(),
+    secondary: RateLimitWindowSchema.nullable().optional(),
+    planType: z.string().max(64).nullable().optional(),
+    rateLimitReachedType: z.string().max(64).nullable().optional(),
+  })
+  .loose();
+
+const RateLimitsByLimitIdSchema = z.record(z.string(), RateLimitBucketSchema).nullable().optional();
+
+const CodexRateLimitsSchema = z
+  .object({
+    rateLimits: RateLimitBucketSchema.extend({
+      rateLimitsByLimitId: RateLimitsByLimitIdSchema,
     })
-    .loose(),
-});
+      .loose()
+      .nullable()
+      .optional(),
+    rateLimitsByLimitId: RateLimitsByLimitIdSchema,
+  })
+  .loose();
 
 type RateLimitWindow = z.infer<typeof RateLimitWindowSchema>;
+type RateLimitBucket = z.infer<typeof RateLimitBucketSchema>;
+type CodexRateLimitsPayload = z.infer<typeof CodexRateLimitsSchema>;
 
 // The known window durations. Codex has changed which windows appear for some
 // plans; recognize each known duration independently and never fabricate an
@@ -389,16 +404,15 @@ export class CodexAppServerProbe {
       if (!parsed.success) {
         return settleFail('codex_protocol_drift', killOnce, stage);
       }
-      const { primary, secondary } = parsed.data.rateLimits;
-      const windows = knownWindowsFrom(primary, secondary);
+      const windows = knownWindowsFromPayload(parsed.data);
       if (windows === null || (windows.primary === undefined && windows.secondary === undefined)) {
         return settleFail('codex_protocol_drift', killOnce, stage);
       }
       stage = 'parsed';
 
       killOnce();
-      const planType = parsed.data.rateLimits.planType;
-      const rateLimitReachedType = parsed.data.rateLimits.rateLimitReachedType;
+      const planType = parsed.data.rateLimits?.planType;
+      const rateLimitReachedType = parsed.data.rateLimits?.rateLimitReachedType;
       return {
         ok: true,
         ...(windows.primary !== undefined ? { primary: windows.primary } : {}),
@@ -556,12 +570,11 @@ function knownWindow(
 // Duplicate known durations are ambiguous and fail closed; unknown/future
 // durations are ignored when a known 5h or weekly window is present.
 function knownWindowsFrom(
-  primary: RateLimitWindow | null | undefined,
-  secondary: RateLimitWindow | null | undefined,
+  ...slots: readonly (RateLimitWindow | null | undefined)[]
 ): KnownCodexWindows | null {
   let primaryWindow: CodexProbeWindow | undefined;
   let secondaryWindow: CodexProbeWindow | undefined;
-  for (const slot of [primary, secondary]) {
+  for (const slot of slots) {
     const matched = knownWindow(slot);
     if (matched === undefined) continue;
     if (matched.kind === 'primary') {
@@ -576,6 +589,46 @@ function knownWindowsFrom(
     ...(primaryWindow !== undefined ? { primary: primaryWindow } : {}),
     ...(secondaryWindow !== undefined ? { secondary: secondaryWindow } : {}),
   };
+}
+
+function hasKnownWindow(windows: KnownCodexWindows | null): windows is KnownCodexWindows {
+  return windows !== null && (windows.primary !== undefined || windows.secondary !== undefined);
+}
+
+function knownWindowsFromBucket(
+  bucket: RateLimitBucket | null | undefined,
+): KnownCodexWindows | null {
+  if (bucket === null || bucket === undefined) return {};
+  return knownWindowsFrom(bucket.primary, bucket.secondary);
+}
+
+function bucketsFromLimitIdMap(
+  byLimitId: Readonly<Record<string, RateLimitBucket>> | null | undefined,
+): readonly RateLimitBucket[] {
+  if (byLimitId === null || byLimitId === undefined) return [];
+  // Bucket identifiers are deliberately ignored; they can be account/plan-shaped
+  // implementation details and are never persisted or surfaced.
+  return Object.values(byLimitId);
+}
+
+function knownWindowsFromBuckets(buckets: readonly RateLimitBucket[]): KnownCodexWindows | null {
+  const slots: (RateLimitWindow | null | undefined)[] = [];
+  for (const bucket of buckets) {
+    slots.push(bucket.primary, bucket.secondary);
+  }
+  return knownWindowsFrom(...slots);
+}
+
+function knownWindowsFromPayload(payload: CodexRateLimitsPayload): KnownCodexWindows | null {
+  const direct = knownWindowsFromBucket(payload.rateLimits);
+  if (direct === null || hasKnownWindow(direct)) return direct;
+
+  const nestedByLimitId = knownWindowsFromBuckets(
+    bucketsFromLimitIdMap(payload.rateLimits?.rateLimitsByLimitId),
+  );
+  if (nestedByLimitId === null || hasKnownWindow(nestedByLimitId)) return nestedByLimitId;
+
+  return knownWindowsFromBuckets(bucketsFromLimitIdMap(payload.rateLimitsByLimitId));
 }
 
 // ---------------------------------------------------------------------------
