@@ -2,6 +2,23 @@
 
 All notable changes to TokenGauge will be documented here. This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.0.3
+
+### Fixed
+
+- Manual Refresh now clears retained Codex probe state before forcing a fresh Codex native-status probe, matching the settings toggle behavior without requiring the user to disable and re-enable the probe.
+- Codex app-server responses that expose recognized usage windows through `rateLimitsByLimitId` are accepted when direct rate-limit slots contain no recognized window, while duplicate recognized fallback windows still fail closed.
+
+### Changed
+
+- README installation and project-status wording now reflects the existing GitHub Releases and Visual Studio Marketplace publication.
+
+### Security and maintenance
+
+- Development and test tooling maintenance updated `@vscode/test-electron` to 3.1.0 and refreshed affected dev-only transitive packages, including `linkify-it`, `brace-expansion`, `fast-uri`, `js-yaml`, `nanoid`, `postcss`, and `undici`.
+- Current full npm audit: zero vulnerabilities.
+- Current production npm audit: zero vulnerabilities.
+
 ## 0.0.2
 
 ### Added
