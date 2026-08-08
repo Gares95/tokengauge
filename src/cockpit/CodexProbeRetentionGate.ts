@@ -165,9 +165,20 @@ export interface CodexProbeRetentionGate {
   // Run one refresh's full candidate list through the gate. Returns the list with
   // the codex slot normalised (accepted / retained-degraded / injected / passed
   // through); every non-codex candidate is returned unchanged in place.
-  step(candidates: readonly SourceCandidate[]): readonly SourceCandidate[];
+  step(
+    candidates: readonly SourceCandidate[],
+    options?: CodexProbeRetentionStepOptions,
+  ): readonly SourceCandidate[];
   // Rule-id/boolean-only snapshot for the Cockpit Diagnostics command. No values.
   diagnosticsSnapshot(): CodexProbeRetentionDiagnosticsSnapshot;
+}
+
+export interface CodexProbeRetentionStepOptions {
+  // Manual Refresh intentionally behaves like the owner-validated
+  // disable→enable workaround without writing settings: clear process-local Codex
+  // retention before interpreting this manual probe result, so a current lower
+  // in-window sample can replace a stale conservative hold.
+  readonly resetRetainedProbeState?: boolean;
 }
 
 export interface CodexProbeRetentionGateOptions {
@@ -339,6 +350,16 @@ export function createCodexProbeRetentionGate(
   let lastStepRuleId: CodexRetentionStepRuleId = 'codex_retention_idle';
   let lastAppliedReason: CockpitFieldReason | undefined;
 
+  function clearHeldState(reason: CockpitFieldReason | undefined): void {
+    lastKnownValid = undefined;
+    lastValidAtMs = 0;
+    lastUnavailableReason = reason;
+    lastResetAtPresent = false;
+    reducerRejectedLower = false;
+    holds.session = { resetMs: undefined, usedPct: undefined, leftPct: undefined };
+    holds.weekly = { resetMs: undefined, usedPct: undefined, leftPct: undefined };
+  }
+
   // Build the retained last-known candidate marked degraded with a reason. The
   // value is kept (DEGRADED_WITH_VALUE_REASONS in GaugeCardViewModel); the reason
   // surfaces the honest degraded story.
@@ -360,9 +381,16 @@ export function createCodexProbeRetentionGate(
   }
 
   return {
-    step(candidates: readonly SourceCandidate[]): readonly SourceCandidate[] {
+    step(
+      candidates: readonly SourceCandidate[],
+      stepOptions: CodexProbeRetentionStepOptions = {},
+    ): readonly SourceCandidate[] {
       const codex = candidates.filter(isCodex);
       const others = candidates.filter((c) => !isCodex(c));
+
+      if (stepOptions.resetRetainedProbeState === true) {
+        clearHeldState(undefined);
+      }
 
       // A DISABLED probe is AUTHORITATIVE. If any codex candidate
       //    this tick is the codex_probe_disabled blocker, the probe is off — drop ALL
@@ -372,13 +400,7 @@ export function createCodexProbeRetentionGate(
       //    upstream by the loop's probeDue gate; this gate never spawns.
       const disabled = codex.find((c) => c.unavailableReason === 'codex_probe_disabled');
       if (disabled !== undefined) {
-        lastKnownValid = undefined;
-        lastValidAtMs = 0;
-        lastUnavailableReason = 'codex_probe_disabled';
-        lastResetAtPresent = false;
-        reducerRejectedLower = false;
-        holds.session = { resetMs: undefined, usedPct: undefined, leftPct: undefined };
-        holds.weekly = { resetMs: undefined, usedPct: undefined, leftPct: undefined };
+        clearHeldState('codex_probe_disabled');
         lastStepRuleId = 'codex_retention_passed_blocker';
         lastAppliedReason = 'codex_probe_disabled';
         return [...others, disabled];

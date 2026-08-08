@@ -326,6 +326,42 @@ suite('CodexProbeRetentionGate — conservative near-limit', () => {
     assert.equal(out?.session?.leftPct, 7, 'leftPct stays conservative (least remaining)');
   });
 
+  test('A manual probe refresh clears the conservative hold and accepts a lower current 5h gauge', () => {
+    const gate = enabledGate();
+    gate.step([validCodex({ sessionPct: 93, sessionResetsAt: RESET_A })]);
+
+    const out = codexOf(
+      gate.step([validCodex({ sessionPct: 77, sessionResetsAt: RESET_A })], {
+        resetRetainedProbeState: true,
+      }),
+    );
+
+    assert.equal(out?.session?.usedPct, 77, 'manual refresh accepts the current lower sample');
+    assert.equal(out?.session?.leftPct, 23, 'leftPct resets to the current sample');
+    assert.equal(
+      gate.diagnosticsSnapshot().reducerRejectedLower,
+      false,
+      'manual reset does not report a rejected lower sample',
+    );
+
+    const retained = codexOf(gate.step([codexBlocker('codex_probe_failed')]));
+    assert.equal(retained?.session?.usedPct, 77, 'future retention keeps the manual current value');
+  });
+
+  test('A manual probe refresh with a blocker clears the prior value instead of retaining it', () => {
+    const gate = enabledGate();
+    gate.step([validCodex({ sessionPct: 93, sessionResetsAt: RESET_A })]);
+
+    const out = codexOf(
+      gate.step([codexBlocker('codex_probe_failed')], { resetRetainedProbeState: true }),
+    );
+
+    assert.equal(out?.sourceTier, 'unknown');
+    assert.equal(unavailableReasonOf(out), 'codex_probe_failed');
+    assert.equal(out?.session, undefined, 'manual reset must not retain a stale prior value');
+    assert.equal(gate.diagnosticsSnapshot().hasLastKnownValid, false);
+  });
+
   test('A later HIGHER in-window probe moves the gauge UP and holds', () => {
     const gate = enabledGate();
     gate.step([validCodex({ sessionPct: 80, sessionResetsAt: RESET_A })]);
