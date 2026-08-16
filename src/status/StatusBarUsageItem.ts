@@ -5,10 +5,16 @@
 // tools/check-no-stray-ui-surfaces.mjs). Under the default native cockpit the
 // bar is driven by the sanitized GaugeCardViewModel[] the cockpit loop posts —
 // NOT by the log-derived aggregator. Honesty invariants for the native path:
-//   - the text reflects the Claude card's session-gauge usedPct + risk; a
-//     degraded/collision card keeps its value and is marked `(last known)`; an
-//     unavailable card renders `—`. It NEVER renders "no usage yet" or any
-//     log-derived source string while a native card is present.
+//   - the text reflects the card's PRIMARY limit window + risk, using the same
+//     promotion rule as the card (`primaryLimitWindow`): the 5h window, or the
+//     weekly window when the short one is absent. The window is always NAMED so a
+//     promoted weekly value is never read as a 5h value. A degraded/collision
+//     card keeps its value and is marked `(last known)`; a card with no limit
+//     value renders `—`. It NEVER renders "no usage yet" or any log-derived
+//     source string while a native card is present.
+//   - the compact Codex hint says `off` ONLY for codex_probe_disabled; other
+//     absences read `pending` / `n/a` so the bar never contradicts the user's
+//     probe setting.
 // - risk warning/critical maps to the status-bar warning background.
 //   - the tooltip is PLAIN-LANGUAGE and user-facing — agent, model, a
 //     "reported by <tool>; not an official billing total" honesty cue, a plain
@@ -25,7 +31,14 @@
 // trace, env value, session id, or credential ever reaches this surface.
 
 import * as vscode from 'vscode';
-import type { CardRisk, GaugeCardViewModel } from '../cockpit/GaugeCardViewModel';
+import type {
+  CardFreshness,
+  CardRisk,
+  GaugeCardViewModel,
+  LimitWindowKind,
+} from '../cockpit/GaugeCardViewModel';
+import { primaryLimitWindow } from '../cockpit/GaugeCardViewModel';
+import type { CockpitFieldReason } from '../core/cockpit/CockpitState';
 
 // VS Code auto-provides `<viewId>.focus` for a contributed view, so focusing the
 // cockpit needs no bespoke command (the plan's Option A).
@@ -39,19 +52,51 @@ function claudeCard(cards: readonly GaugeCardViewModel[]): GaugeCardViewModel | 
   return cards.find((c) => c.agent === 'claude-code') ?? cards[0];
 }
 
+// Compact window suffix. The card labels these "5-hour window" / "Weekly"; the
+// bar shortens them but must still NAME the window, so a promoted weekly value
+// can never be misread as a 5h value.
+const WINDOW_SUFFIX: Record<LimitWindowKind, string> = {
+  session: '5h',
+  weekly: 'weekly',
+};
+
+// Compact copy for a Codex card carrying NO limit value. `off` is reserved for
+// the one reason that actually means the probe is off — every other absence
+// (pending, CLI missing, timeout, unrecognized response, reset pending) reads as
+// unavailable rather than falsely reporting the user's setting as disabled.
+function codexAbsenceHint(reason: CockpitFieldReason | undefined): string {
+  if (reason === 'codex_probe_disabled') return 'Codex off';
+  if (reason === 'codex_probe_pending') return 'Codex pending';
+  return 'Codex n/a';
+}
+
+// A value is "retained" when the card kept a last-known number instead of a live
+// one. The bar must mark it rather than presenting it as current.
+function isRetainedValue(card: GaugeCardViewModel, gaugeState: CardFreshness): boolean {
+  return gaugeState === 'degraded' || card.freshness === 'degraded';
+}
+
 function codexHint(cards: readonly GaugeCardViewModel[]): string | undefined {
   const codex = cards.find((c) => c.agent === 'codex');
   if (codex === undefined) {
     return undefined;
   }
-  if (codex.session.usedPct !== undefined) {
-    return `Codex ${codex.session.usedPct}%`;
+  // Mirror the CARD's promoted primary window (weekly when the short window is
+  // absent) instead of reading `session` directly — otherwise a weekly-only
+  // Codex account renders a live gauge in the cockpit and a false "Codex off"
+  // here.
+  const primary = primaryLimitWindow(codex);
+  if (primary === undefined) {
+    return codexAbsenceHint(codex.reason ?? codex.session.reason);
   }
-  return 'Codex off';
+  const suffix = WINDOW_SUFFIX[primary.kind];
+  const retained = isRetainedValue(codex, primary.gauge.state) ? ' (last known)' : '';
+  return `Codex ${primary.gauge.usedPct}% ${suffix}${retained}`;
 }
 
-// Map a native card to glanceable status-bar text. A fresh card shows the 5h
-// session usedPct; a degraded card keeps the value and flags `(last known)`; an
+// Map a native card to glanceable status-bar text. A fresh card shows its
+// primary limit window (5h, or the promoted weekly window when the short window
+// is absent); a degraded card keeps the value and flags `(last known)`; an
 // unavailable card shows a `—` — never "no usage yet".
 export function formatCockpitStatusBarText(cards: readonly GaugeCardViewModel[]): string {
   const card = claudeCard(cards);
@@ -59,14 +104,15 @@ export function formatCockpitStatusBarText(cards: readonly GaugeCardViewModel[])
     return NEUTRAL_STATUS_BAR_TEXT;
   }
   const label = card.agentLabel.replace(/\s+code$/i, '');
+  const primary = primaryLimitWindow(card);
   let head: string;
-  if (card.session.usedPct === undefined) {
+  if (primary === undefined) {
     head = `TG: ${label} —`;
-  } else if (card.session.state === 'degraded' || card.freshness === 'degraded') {
+  } else if (isRetainedValue(card, primary.gauge.state)) {
     // Plain-language "retained value" cue — never the raw `degraded` taxonomy.
-    head = `TG: ${label} ${card.session.usedPct}% 5h (last known)`;
+    head = `TG: ${label} ${primary.gauge.usedPct}% ${WINDOW_SUFFIX[primary.kind]} (last known)`;
   } else {
-    head = `TG: ${label} ${card.session.usedPct}% 5h`;
+    head = `TG: ${label} ${primary.gauge.usedPct}% ${WINDOW_SUFFIX[primary.kind]}`;
   }
   const hint = card.agent === 'codex' ? undefined : codexHint(cards);
   return hint !== undefined ? `${head} · ${hint}` : head;
@@ -104,11 +150,14 @@ function reportedByLine(card: GaugeCardViewModel): string | undefined {
 // reads as "last known" (not live, not a failure); an absent value reads as
 // unavailable; a live value reads as native status data.
 function plainStateLine(card: GaugeCardViewModel): string {
-  if (card.session.usedPct === undefined) {
+  // Reads the PROMOTED primary window for the same reason the text does: a
+  // weekly-only card is showing real native data, not an unavailable state.
+  const primary = primaryLimitWindow(card);
+  if (primary === undefined) {
     return 'Some values are currently unavailable.';
   }
   if (
-    card.session.state === 'degraded' ||
+    primary.gauge.state === 'degraded' ||
     card.freshness === 'degraded' ||
     card.freshness === 'stale'
   ) {

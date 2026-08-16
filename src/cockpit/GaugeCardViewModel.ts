@@ -285,6 +285,35 @@ function primaryLimitField(agent: AgentId, state: CockpitState): CockpitField<nu
   return state.session.usedPct;
 }
 
+// Which limit window a surface should PRESENT as the card's primary meter, under
+// the SAME promotion rule the card renders with: the 5h window, or the weekly
+// window when the short one is merely absent (`canPromoteWeekly` — Codex only,
+// and only for an optional absence, never for a blocker). Returns undefined when
+// the card has no presentable limit value.
+//
+// The `kind` travels WITH the gauge so a promoted weekly value can never be
+// labelled as a 5h value by a consumer. Exported because the status bar must
+// agree with the card; reading `session.usedPct` directly there reported a
+// working weekly-only Codex account as "Codex off".
+export type LimitWindowKind = 'session' | 'weekly';
+
+export interface PrimaryLimitWindow {
+  readonly kind: LimitWindowKind;
+  readonly gauge: GaugeViewModel;
+}
+
+export function primaryLimitWindow(card: {
+  readonly agent: AgentId;
+  readonly session: GaugeViewModel;
+  readonly weekly: GaugeViewModel;
+}): PrimaryLimitWindow | undefined {
+  if (card.session.usedPct !== undefined) return { kind: 'session', gauge: card.session };
+  if (canPromoteWeekly(card.agent, card.session) && card.weekly.usedPct !== undefined) {
+    return { kind: 'weekly', gauge: card.weekly };
+  }
+  return undefined;
+}
+
 function primaryLimitGauge(session: GaugeViewModel, weekly: GaugeViewModel): GaugeViewModel {
   if (session.usedPct !== undefined) return session;
   if (weekly.usedPct !== undefined) return weekly;
