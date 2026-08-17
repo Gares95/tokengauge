@@ -566,7 +566,7 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
         },
       });
       const lines = [
-        '# TokenGauge — Cockpit Diagnostics',
+        '# TokenGauge: Cockpit Diagnostics',
         '',
         'Rule-id-only. No raw paths, ids, prompts, logs, emails, or secrets.',
         '',
@@ -719,7 +719,7 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
           const chosen = await vscode.window.showQuickPick(items, {
             title: 'Configure Cockpit',
             placeHolder:
-              'TokenGauge is private by default (native-only, logs off). Pick one — nothing is enabled for you.',
+              'TokenGauge is private by default (native-only, logs off). Pick one; nothing is enabled for you.',
             matchOnDetail: true,
           });
           return chosen?.label;

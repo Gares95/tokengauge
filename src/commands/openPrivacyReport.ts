@@ -57,7 +57,7 @@ const NEVER_STORED_FIELD_KINDS = [
 // Precision caveats so the never-read list is not read as broader than the truth.
 const SCOPE_NOTES = [
   '- Environment: for the opt-in Codex probe, TokenGauge may inspect a small allowlisted set of process environment metadata (such as HOME, SHELL, PATH, XDG_*, locale/user variables, and NVM_DIR) for two purposes: locating your local codex executable (which can include running your own shell non-interactively), and passing a bounded environment to the spawned codex process so it can find its own config and credentials. Raw values are not displayed or persisted.',
-  '- Native surfaces: TokenGauge does read the native status surfaces you configure — such as the Claude statusLine snapshot and stats-cache/status data — but it does not read arbitrary source or workspace files.',
+  '- Native surfaces: TokenGauge does read the native status surfaces you configure (such as the Claude statusLine snapshot and stats-cache/status data), but it does not read arbitrary source or workspace files.',
   '- Paths: raw native-payload paths are not displayed or persisted; configured paths are used only to locate native surfaces and are redacted in diagnostics.',
 ];
 
@@ -72,10 +72,10 @@ function nativePostureLines(input: PrivacyReportInput): string[] {
       ? '- Claude card: visible, so TokenGauge may read the configured statusLine snapshot and local stats-cache/status data.'
       : '- Claude card: hidden, so TokenGauge does not read the Claude statusLine snapshot or stats-cache/status data.',
     input.codexProbeEnabled && input.codexCardVisible
-      ? '- Codex native probe: ON and card visible (enabled by you) — TokenGauge spawns a short-lived local `codex` process; that process contacts its own backend with its own credentials. TokenGauge itself makes no network call and never reads codex credentials.'
+      ? '- Codex native probe: ON and card visible (enabled by you): TokenGauge spawns a short-lived local `codex` process; that process contacts its own backend with its own credentials. TokenGauge itself makes no network call and never reads codex credentials.'
       : input.codexProbeEnabled
-        ? '- Codex native probe: setting enabled but card hidden — no `codex` process is spawned until the Codex card is visible.'
-        : '- Codex native probe: off — no `codex` process is spawned.',
+        ? '- Codex native probe: setting enabled but card hidden: no `codex` process is spawned until the Codex card is visible.'
+        : '- Codex native probe: off, so no `codex` process is spawned.',
     '- Developer telemetry: none (no analytics, no tracking).',
     input.codexProbeEnabled && input.codexCardVisible
       ? '- TokenGauge network calls: none. The Codex native probe is enabled, so the only network is the local `codex` process above (started because you enabled the probe); TokenGauge itself makes no network request.'

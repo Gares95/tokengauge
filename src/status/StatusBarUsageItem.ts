@@ -5,19 +5,29 @@
 // tools/check-no-stray-ui-surfaces.mjs). Under the default native cockpit the
 // bar is driven by the sanitized GaugeCardViewModel[] the cockpit loop posts —
 // NOT by the log-derived aggregator. Honesty invariants for the native path:
-//   - the text reflects the Claude card's session-gauge usedPct + risk; a
-//     degraded/collision card keeps its value and is marked `(last known)`; an
-//     unavailable card renders `—`. It NEVER renders "no usage yet" or any
-//     log-derived source string while a native card is present.
+//   - the text reflects the card's PRIMARY limit window + risk, using the same
+//     promotion rule as the card (`primaryLimitWindow`): the 5h window, or the
+//     weekly window when the short one is absent. The window is always NAMED so a
+//     promoted weekly value is never read as a 5h value. A degraded/collision
+//     card keeps its value and is marked `(last known)`; a card with no limit
+//     value renders `—`. It NEVER renders "no usage yet" or any log-derived
+//     source string while a native card is present.
+//   - the compact Codex hint says `off` ONLY for codex_probe_disabled; other
+//     absences read `pending` / `n/a` so the bar never contradicts the user's
+//     probe setting.
 // - risk warning/critical maps to the status-bar warning background.
-//   - the tooltip is PLAIN-LANGUAGE and user-facing — agent, model, a
-//     "reported by <tool>; not an official billing total" honesty cue, a plain
-//     last-known/unavailable state line, and the "Click to open the TokenGauge
-//     Cockpit." action. Raw internal taxonomy (sourceTier / accuracyLabel /
-//     confidence / freshness ids, and the "billing-authoritative" jargon) is NOT
-//     surfaced here — it stays in the card's technical details and Cockpit
-//     Diagnostics. It never carries "local logs / last sync never / accuracy
-//     unknown".
+//   - the tooltip is PLAIN-LANGUAGE and user-facing, and covers EVERY visible
+//     card (not just the primary one): per agent its model, one line per REPORTED
+//     limit window with its used% and reset time, and that agent's "reported by
+//     <tool>; not an official billing total" honesty cue, then the "Click to open
+//     the TokenGauge Cockpit." action. An unreported window produces no line at
+//     all (never 0%, never a guess); a retained value is marked "(last known)" on
+//     the window itself. Cost and context are deliberately omitted — they are the
+//     technical details the cards hide by default. Raw internal taxonomy
+//     (sourceTier / accuracyLabel / confidence / freshness ids, and the
+//     "billing-authoritative" jargon) is NOT surfaced here — it stays in the
+//     card's technical details and Cockpit Diagnostics. It never carries "local
+//     logs / last sync never / accuracy unknown".
 //   - clicking focuses the native cockpit view (the auto-provided focus command),
 //     never the legacy log-derived surface.
 //
@@ -25,7 +35,14 @@
 // trace, env value, session id, or credential ever reaches this surface.
 
 import * as vscode from 'vscode';
-import type { CardRisk, GaugeCardViewModel } from '../cockpit/GaugeCardViewModel';
+import type {
+  CardFreshness,
+  CardRisk,
+  GaugeCardViewModel,
+  LimitWindowKind,
+} from '../cockpit/GaugeCardViewModel';
+import { primaryLimitWindow } from '../cockpit/GaugeCardViewModel';
+import type { CockpitFieldReason } from '../core/cockpit/CockpitState';
 
 // VS Code auto-provides `<viewId>.focus` for a contributed view, so focusing the
 // cockpit needs no bespoke command (the plan's Option A).
@@ -39,19 +56,51 @@ function claudeCard(cards: readonly GaugeCardViewModel[]): GaugeCardViewModel | 
   return cards.find((c) => c.agent === 'claude-code') ?? cards[0];
 }
 
+// Compact window suffix. The card labels these "5-hour window" / "Weekly"; the
+// bar shortens them but must still NAME the window, so a promoted weekly value
+// can never be misread as a 5h value.
+const WINDOW_SUFFIX: Record<LimitWindowKind, string> = {
+  session: '5h',
+  weekly: 'weekly',
+};
+
+// Compact copy for a Codex card carrying NO limit value. `off` is reserved for
+// the one reason that actually means the probe is off — every other absence
+// (pending, CLI missing, timeout, unrecognized response, reset pending) reads as
+// unavailable rather than falsely reporting the user's setting as disabled.
+function codexAbsenceHint(reason: CockpitFieldReason | undefined): string {
+  if (reason === 'codex_probe_disabled') return 'Codex off';
+  if (reason === 'codex_probe_pending') return 'Codex pending';
+  return 'Codex n/a';
+}
+
+// A value is "retained" when the card kept a last-known number instead of a live
+// one. The bar must mark it rather than presenting it as current.
+function isRetainedValue(card: GaugeCardViewModel, gaugeState: CardFreshness): boolean {
+  return gaugeState === 'degraded' || card.freshness === 'degraded';
+}
+
 function codexHint(cards: readonly GaugeCardViewModel[]): string | undefined {
   const codex = cards.find((c) => c.agent === 'codex');
   if (codex === undefined) {
     return undefined;
   }
-  if (codex.session.usedPct !== undefined) {
-    return `Codex ${codex.session.usedPct}%`;
+  // Mirror the CARD's promoted primary window (weekly when the short window is
+  // absent) instead of reading `session` directly — otherwise a weekly-only
+  // Codex account renders a live gauge in the cockpit and a false "Codex off"
+  // here.
+  const primary = primaryLimitWindow(codex);
+  if (primary === undefined) {
+    return codexAbsenceHint(codex.reason ?? codex.session.reason);
   }
-  return 'Codex off';
+  const suffix = WINDOW_SUFFIX[primary.kind];
+  const retained = isRetainedValue(codex, primary.gauge.state) ? ' (last known)' : '';
+  return `Codex ${primary.gauge.usedPct}% ${suffix}${retained}`;
 }
 
-// Map a native card to glanceable status-bar text. A fresh card shows the 5h
-// session usedPct; a degraded card keeps the value and flags `(last known)`; an
+// Map a native card to glanceable status-bar text. A fresh card shows its
+// primary limit window (5h, or the promoted weekly window when the short window
+// is absent); a degraded card keeps the value and flags `(last known)`; an
 // unavailable card shows a `—` — never "no usage yet".
 export function formatCockpitStatusBarText(cards: readonly GaugeCardViewModel[]): string {
   const card = claudeCard(cards);
@@ -59,14 +108,15 @@ export function formatCockpitStatusBarText(cards: readonly GaugeCardViewModel[])
     return NEUTRAL_STATUS_BAR_TEXT;
   }
   const label = card.agentLabel.replace(/\s+code$/i, '');
+  const primary = primaryLimitWindow(card);
   let head: string;
-  if (card.session.usedPct === undefined) {
+  if (primary === undefined) {
     head = `TG: ${label} —`;
-  } else if (card.session.state === 'degraded' || card.freshness === 'degraded') {
+  } else if (isRetainedValue(card, primary.gauge.state)) {
     // Plain-language "retained value" cue — never the raw `degraded` taxonomy.
-    head = `TG: ${label} ${card.session.usedPct}% 5h (last known)`;
+    head = `TG: ${label} ${primary.gauge.usedPct}% ${WINDOW_SUFFIX[primary.kind]} (last known)`;
   } else {
-    head = `TG: ${label} ${card.session.usedPct}% 5h`;
+    head = `TG: ${label} ${primary.gauge.usedPct}% ${WINDOW_SUFFIX[primary.kind]}`;
   }
   const hint = card.agent === 'codex' ? undefined : codexHint(cards);
   return hint !== undefined ? `${head} · ${hint}` : head;
@@ -100,43 +150,90 @@ function reportedByLine(card: GaugeCardViewModel): string | undefined {
   return undefined;
 }
 
-// Plain-language state cue — never a raw freshness/sourceTier id. A retained value
-// reads as "last known" (not live, not a failure); an absent value reads as
-// unavailable; a live value reads as native status data.
-function plainStateLine(card: GaugeCardViewModel): string {
-  if (card.session.usedPct === undefined) {
-    return 'Some values are currently unavailable.';
-  }
-  if (
-    card.session.state === 'degraded' ||
-    card.freshness === 'degraded' ||
-    card.freshness === 'stale'
-  ) {
-    return 'Some values are last known, not live.';
-  }
-  return 'Showing native status data.';
+// Plain-language state cue for a card with NO limit value — never a raw
+// freshness/sourceTier id. A card that HAS a value needs no such line: the window
+// lines carry the value, and a retained one is marked "(last known)" in place.
+function plainAbsenceLine(card: GaugeCardViewModel): string {
+  return card.freshness === 'unavailable'
+    ? 'No usage window is available yet.'
+    : 'Some values are currently unavailable.';
 }
 
-// Plain-language, user-facing tooltip. It keeps the honesty signals (native vs
-// billing, last-known vs live, unavailable) in readable copy and front-loads the
-// cockpit action; raw internal taxonomy stays in the card's technical details and
-// Cockpit Diagnostics.
+// Full tooltip labels for the two limit windows. The bar text is compact ("5h");
+// the hover has room for the card's own vocabulary.
+const WINDOW_TOOLTIP_LABEL: Record<LimitWindowKind, string> = {
+  session: '5-hour',
+  weekly: 'Weekly',
+};
+
+// The gauge sublabel reads "12% left · resets 17:30 · in 2h 15m". The reset tail
+// is the most actionable fact on a hover (especially at 100% used), so lift it
+// verbatim from the ONE shared reset formatter rather than re-deriving it here.
+// Mirrors the card's own resetText helper.
+function resetTail(subLabel: string | undefined): string | undefined {
+  if (subLabel === undefined) return undefined;
+  const index = subLabel.indexOf('resets ');
+  return index >= 0 ? subLabel.slice(index) : undefined;
+}
+
+// One indented "<window>: N% used, resets …" line. Absent windows produce no
+// line at all: an unreported window is never shown as 0% or as a guess.
+function windowLine(
+  card: GaugeCardViewModel,
+  kind: LimitWindowKind,
+  gauge: GaugeCardViewModel['session'],
+): string | undefined {
+  if (gauge.usedPct === undefined) {
+    return undefined;
+  }
+  const tail = resetTail(gauge.subLabel);
+  const reset = tail !== undefined ? `, ${tail}` : '';
+  const retained = isRetainedValue(card, gauge.state) ? ' (last known)' : '';
+  return `  ${WINDOW_TOOLTIP_LABEL[kind]}: ${gauge.usedPct}% used${reset}${retained}`;
+}
+
+// One block per visible card: the agent (with its model when known), a line per
+// reported window, and the agent's own non-billing attribution. Cost and context
+// are deliberately absent — they are the "technical details" the cards hide by
+// default, so surfacing them here would contradict that default.
+function cardTooltipLines(card: GaugeCardViewModel): readonly string[] {
+  const lines: string[] = [
+    card.model !== undefined ? `${card.agentLabel} (${card.model})` : card.agentLabel,
+  ];
+  const session = windowLine(card, 'session', card.session);
+  const weekly = windowLine(card, 'weekly', card.weekly);
+  if (session !== undefined) {
+    lines.push(session);
+  }
+  if (weekly !== undefined) {
+    lines.push(weekly);
+  }
+  if (session === undefined && weekly === undefined) {
+    lines.push(`  ${plainAbsenceLine(card)}`);
+  }
+  const accuracy = reportedByLine(card);
+  if (accuracy !== undefined) {
+    lines.push(`  ${accuracy}`);
+  }
+  return lines;
+}
+
+// Plain-language, user-facing tooltip. It covers EVERY visible card, not just the
+// primary one, because the bar text names them all and a hover is the only place
+// with room for the per-window numbers and reset times. It keeps the honesty
+// signals (native vs billing, last-known vs live, unavailable) in readable copy;
+// raw internal taxonomy stays in the card's technical details and Cockpit
+// Diagnostics.
 export function buildCockpitStatusTooltip(cards: readonly GaugeCardViewModel[]): string {
-  const card = claudeCard(cards);
-  if (card === undefined) {
+  if (cards.length === 0) {
     return ['TokenGauge', 'No native status yet.', 'Click to open the TokenGauge Cockpit.'].join(
       '\n',
     );
   }
-  const lines: string[] = [`TokenGauge: ${card.agentLabel}`];
-  if (card.model !== undefined) {
-    lines.push(`Model: ${card.model}`);
+  const lines: string[] = ['TokenGauge'];
+  for (const card of cards) {
+    lines.push(...cardTooltipLines(card));
   }
-  const accuracy = reportedByLine(card);
-  if (accuracy !== undefined) {
-    lines.push(accuracy);
-  }
-  lines.push(plainStateLine(card));
   lines.push('Click to open the TokenGauge Cockpit.');
   lines.push('For technical details, run TokenGauge: Cockpit Diagnostics.');
   return lines.join('\n');

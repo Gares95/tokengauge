@@ -9,7 +9,7 @@ export function PrivacyFooter({ agentLabel }: { readonly agentLabel: string }) {
     <footer className="tg-footer">
       <div className="tg-footer__line">{`Reported by ${agentLabel}`}</div>
       <div className="tg-footer__line">
-        {"Reads only your agent's status — never your prompts, code, or logs"}
+        {"Reads only your agent's status, never your prompts, code, or logs"}
       </div>
     </footer>
   );
