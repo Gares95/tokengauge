@@ -179,10 +179,60 @@ and reset times, model id, optional cost and context, plus a capture timestamp
 and **hashed** session/workspace identifiers), never raw paths, raw session ids,
 prompts, or transcripts. The hashed identifiers let TokenGauge tell two
 sessions apart safely; without them the multiple-writers warning described below
-cannot appear. The script also prints a short line to stdout, because Claude
-Code displays the first stdout line of your statusLine command (without it your
-Claude status line would be blank). It uses Node's built-in JSON parser and
-SHA-256 hashing, so no `jq`, `sha256sum`, `chmod`, or `sed` step is needed.
+cannot appear. It uses Node's built-in JSON parser and SHA-256 hashing, so
+no `jq`, `sha256sum`, `chmod`, or `sed` step is needed.
+
+### What your Claude status line will show
+
+Claude Code renders the **first stdout line** of `statusLine.command` as your
+entire status line, so once you point `statusLine.command` at this writer, that
+line is the only thing occupying that space. The writer spends it on the usage
+numbers Claude Code just handed it:
+
+```
+32% 5h · 12% wk
+```
+
+Both windows are **account-level**, so this line reads the same in every
+concurrent session and window. Session-local values (the model, the context
+window, cost) are deliberately left out: printing one beside account-level
+percentages would suggest the percentages belong to that one session. Those
+values are still written to the snapshot and still shown on the TokenGauge cards.
+
+A window Claude Code did not report is omitted rather than shown as `0%`, so you
+may see only one window:
+
+```
+32% 5h
+```
+
+Claude Code reports `rate_limits` only for Claude.ai subscription (Pro/Max)
+sessions, and only after the session's first response. Until then, or on an
+API-key/Console session, the line reads:
+
+```
+no limit fields yet
+```
+
+That is honest rather than a fault, and it still confirms the writer ran. If the
+writer fails it prints nothing to stdout, writes a short reason to stderr, and
+exits non-zero.
+
+**Keeping your own status line.** Claude Code runs one `statusLine.command`, so
+the writer replaces whatever you had. To keep your own line as well, point
+`statusLine.command` at a small wrapper that feeds the writer and then prints
+whatever you want:
+
+```bash
+input=$(cat)
+printf '%s' "$input" | node ~/.tokengauge/claude/claude-statusline-writer.mjs \
+  --file ~/.tokengauge/claude/statusline-snapshot.json >/dev/null
+printf 'my own status line\n'
+```
+
+TokenGauge reads the snapshot either way; only stdout changes. To revert to your
+previous status line entirely, see
+[Claude statusLine integration: safety and revert notes](#claude-statusline-integration-safety-and-revert-notes).
 
 #### WSL, Linux, macOS, or Git Bash
 
@@ -381,6 +431,37 @@ async function readStdin() {
   return input;
 }
 
+// Claude Code renders the FIRST stdout line of statusLine.command as your whole
+// status line, so this line is the only thing that occupies that space once you
+// point statusLine.command here. Spend it on the numbers Claude Code just handed
+// us rather than a fixed confirmation string: a terminal-only session cannot see
+// TokenGauge's VS Code surfaces at all, and this is the same data, at the point
+// of attention, for free.
+//
+// ACCOUNT-LEVEL ONLY. Both windows are account-wide, so this line reads the same
+// in every concurrent session and window. Session-local values (the model, the
+// context window, cost) are deliberately left out: printing one beside
+// account-level percentages would imply the percentages belong to that session.
+
+// A window contributes a part only when it carries a real percentage. A window
+// Claude Code did not report is omitted, never rendered as 0%.
+function windowPart(window, label) {
+  const used = window?.used_percentage;
+  return typeof used === 'number' ? `${used}% ${label}` : undefined;
+}
+
+// Claude Code reports rate_limits only for Claude.ai subscription sessions, and
+// only after the session's first response, so the no-window case is normal and
+// must read honestly. It also keeps the confirmation value of the old fixed
+// string in exactly the case where there is no number to show.
+function statusLine(snapshot) {
+  const parts = [
+    windowPart(snapshot.rate_limits?.five_hour, '5h'),
+    windowPart(snapshot.rate_limits?.seven_day, 'wk'),
+  ].filter((part) => part !== undefined);
+  return parts.length > 0 ? parts.join(' · ') : 'no limit fields yet';
+}
+
 async function main() {
   const { mode, target } = parseArgs(argv.slice(2));
   let payload;
@@ -393,7 +474,7 @@ async function main() {
 
   const snapshot = buildSnapshot(payload);
   writeAtomic(outputPathFor(mode, target, snapshot), snapshot);
-  stdout.write('TokenGauge snapshot updated\n');
+  stdout.write(`${statusLine(snapshot)}\n`);
 }
 
 main().catch((error) => {
@@ -424,6 +505,7 @@ $writer = Join-Path $HOME ".tokengauge\claude\claude-statusline-writer.mjs"
 New-Item -ItemType Directory -Force -Path (Split-Path $writer) | Out-Null
 
 @'
+
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -613,6 +695,37 @@ async function readStdin() {
   return input;
 }
 
+// Claude Code renders the FIRST stdout line of statusLine.command as your whole
+// status line, so this line is the only thing that occupies that space once you
+// point statusLine.command here. Spend it on the numbers Claude Code just handed
+// us rather than a fixed confirmation string: a terminal-only session cannot see
+// TokenGauge's VS Code surfaces at all, and this is the same data, at the point
+// of attention, for free.
+//
+// ACCOUNT-LEVEL ONLY. Both windows are account-wide, so this line reads the same
+// in every concurrent session and window. Session-local values (the model, the
+// context window, cost) are deliberately left out: printing one beside
+// account-level percentages would imply the percentages belong to that session.
+
+// A window contributes a part only when it carries a real percentage. A window
+// Claude Code did not report is omitted, never rendered as 0%.
+function windowPart(window, label) {
+  const used = window?.used_percentage;
+  return typeof used === 'number' ? `${used}% ${label}` : undefined;
+}
+
+// Claude Code reports rate_limits only for Claude.ai subscription sessions, and
+// only after the session's first response, so the no-window case is normal and
+// must read honestly. It also keeps the confirmation value of the old fixed
+// string in exactly the case where there is no number to show.
+function statusLine(snapshot) {
+  const parts = [
+    windowPart(snapshot.rate_limits?.five_hour, '5h'),
+    windowPart(snapshot.rate_limits?.seven_day, 'wk'),
+  ].filter((part) => part !== undefined);
+  return parts.length > 0 ? parts.join(' · ') : 'no limit fields yet';
+}
+
 async function main() {
   const { mode, target } = parseArgs(argv.slice(2));
   let payload;
@@ -625,7 +738,7 @@ async function main() {
 
   const snapshot = buildSnapshot(payload);
   writeAtomic(outputPathFor(mode, target, snapshot), snapshot);
-  stdout.write('TokenGauge snapshot updated\n');
+  stdout.write(`${statusLine(snapshot)}\n`);
 }
 
 main().catch((error) => {

@@ -128,6 +128,120 @@ function assertReadmeCopiesMatch(readmeText: string): void {
   );
 }
 
+// The writer's stdout IS the user's whole Claude status line (Claude Code renders
+// the first stdout line of statusLine.command), so the format is a user-facing
+// contract. It must carry the account-level windows, name each window, omit an
+// unreported window rather than fabricate 0%, and stay identical across
+// concurrent sessions on one account.
+suite('Claude statusLine canonical writer: status line output', () => {
+  // Session-local values would make the line differ between concurrent sessions
+  // and would imply the account-level percentages belong to one session.
+  function statusLineFor(rateLimits: unknown, modelId = 'claude-opus-4-1'): string {
+    const dir = tempDir();
+    try {
+      const input = JSON.stringify({
+        ...payloadObject,
+        model: { id: modelId, display_name: 'Display Name' },
+        rate_limits: rateLimits,
+      });
+      const result = runWriter(['--file', path.join(dir, 'snapshot.json')], input);
+      assert.equal(result.status, 0, result.stderr);
+      return result.stdout;
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  test('both windows render as account-level percentages, each window named', () => {
+    const line = statusLineFor({
+      five_hour: { used_percentage: 32 },
+      seven_day: { used_percentage: 12 },
+    });
+    assert.equal(line, '32% 5h · 12% wk\n');
+  });
+
+  test('a 5h-only account reports just that window', () => {
+    assert.equal(statusLineFor({ five_hour: { used_percentage: 32 } }), '32% 5h\n');
+  });
+
+  test('a weekly-only account reports just that window, never mislabelled 5h', () => {
+    const line = statusLineFor({ seven_day: { used_percentage: 12 } });
+    assert.equal(line, '12% wk\n');
+    assert.ok(!line.includes('5h'), 'a weekly value must never carry the 5h label');
+  });
+
+  // rate_limits is absent for API-key/Console sessions and before the session's
+  // first response. That is normal, so it must read honestly rather than as 0%,
+  // and it still confirms the writer ran.
+  test('no rate_limits reads honestly instead of fabricating a zero', () => {
+    const line = statusLineFor(undefined);
+    assert.equal(line, 'no limit fields yet\n');
+    assert.ok(!line.includes('%'), 'never a percentage when none was reported');
+  });
+
+  test('an unreported window is omitted, never rendered as 0%', () => {
+    const line = statusLineFor({ seven_day: { used_percentage: 12 } });
+    assert.ok(!line.includes('0% 5h'), 'a missing window must not become 0%');
+  });
+
+  // A window Claude Code genuinely reports as 0 is a real value, not an absence.
+  test('a genuine zero is reported as a value', () => {
+    assert.equal(statusLineFor({ five_hour: { used_percentage: 0 } }), '0% 5h\n');
+  });
+
+  test('an exhausted window is reported plainly at 100%', () => {
+    const line = statusLineFor({
+      five_hour: { used_percentage: 41 },
+      seven_day: { used_percentage: 100 },
+    });
+    assert.equal(line, '41% 5h · 100% wk\n');
+  });
+
+  // The property that keeps multi-session use coherent: same account, different
+  // session models, identical line. A session-local value would break this.
+  test('the line is identical across sessions running different models', () => {
+    const windows = {
+      five_hour: { used_percentage: 32 },
+      seven_day: { used_percentage: 12 },
+    };
+    const opus = statusLineFor(windows, 'claude-opus-4-1');
+    const haiku = statusLineFor(windows, 'claude-haiku-4-5');
+    assert.equal(opus, haiku, 'concurrent sessions on one account must agree');
+    assert.ok(!opus.includes('opus') && !haiku.includes('haiku'), 'no session-local model');
+  });
+
+  test('the status line carries no session-local model, context, or cost', () => {
+    const line = statusLineFor({ five_hour: { used_percentage: 32 } });
+    for (const forbidden of ['claude', 'opus', 'Display Name', '12.34', '$', '38%', '200000']) {
+      assert.ok(!line.includes(forbidden), `status line must not carry ${forbidden}`);
+    }
+  });
+
+  // Dropping them from the LINE must not drop them from the snapshot: the cards
+  // and the status bar hover still read model/cost/context from the file.
+  test('the snapshot still carries the model, cost, and context for the cards', () => {
+    const dir = tempDir();
+    try {
+      const output = path.join(dir, 'snapshot.json');
+      assert.equal(runWriter(['--file', output]).status, 0);
+      const snapshot = readSnapshot(output);
+      assert.equal(snapshot.model.id, 'claude-opus-4-1');
+      assert.equal(snapshot.cost?.total_cost_usd, 12.34);
+      assert.equal(snapshot.context_window?.used_percentage, 38);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // A failed write must not print a status line that implies success.
+  test('a failed write prints nothing to stdout and exits non-zero', () => {
+    const result = runWriter(['--file', ''], payload);
+    assert.notEqual(result.status, 0, 'must not report success');
+    assert.equal(result.stdout, '', 'no status line on failure');
+    assertPrivateErrorAbsent(result.stderr);
+  });
+});
+
 suite('Claude statusLine canonical writer', () => {
   test('file mode writes a schema-valid snapshot consumed by the live reader', () => {
     const dir = tempDir();
@@ -136,7 +250,7 @@ suite('Claude statusLine canonical writer', () => {
       const result = runWriter(['--file', output]);
 
       assert.equal(result.status, 0, result.stderr);
-      assert.equal(result.stdout, 'TokenGauge snapshot updated\n');
+      assert.equal(result.stdout, '64% 5h · 29% wk\n');
       assertPrivateErrorAbsent(result.stderr);
       assertNoTempLeft(dir);
       assert.ok(modeIsPrivate(output), 'snapshot file must not be group/world accessible');
@@ -353,9 +467,7 @@ suite('Claude statusLine canonical writer', () => {
     assertReadmeCopiesMatch(readme);
 
     assert.throws(() =>
-      assertReadmeCopiesMatch(
-        readme.replace('TokenGauge snapshot updated', 'mutated snapshot updated'),
-      ),
+      assertReadmeCopiesMatch(readme.replace("parts.join(' · ')", "parts.join(' mutated ')")),
     );
   });
 });
