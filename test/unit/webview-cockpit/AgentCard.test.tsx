@@ -351,7 +351,7 @@ suite('AgentCard — Context + cost are technical-only', () => {
     );
     assert.match(
       text,
-      /Context unavailable — Codex app-server does not expose current session context/,
+      /Context unavailable: Codex app-server does not expose current session context/,
     );
   });
 });
@@ -361,7 +361,7 @@ suite('AgentCard — persistent privacy footer', () => {
     for (const card of [liveCard(), blockedCard('codex_probe_disabled')]) {
       const text = textContent(AgentCard({ card }));
       assert.match(text, /Reported by /);
-      assert.match(text, /Reads only your agent's status — never your prompts, code, or logs/);
+      assert.match(text, /Reads only your agent's status, never your prompts, code, or logs/);
     }
   });
 });

@@ -155,31 +155,31 @@ const SETUP_BY_REASON: Partial<Record<CockpitFieldReason, SetupSpec>> = {
   },
   codex_probe_failed: {
     title: 'Native status blocked',
-    msg: 'The native probe is on but returned no usable status — try a recheck.',
+    msg: 'The native probe is on but returned no usable status; try a recheck.',
     ctaLabel: 'Recheck native status',
     action: 'refreshNativeStatus',
   },
   codex_probe_timeout: {
     title: 'Native status blocked',
-    msg: 'The native probe is on but returned no usable status — try a recheck.',
+    msg: 'The native probe is on but returned no usable status; try a recheck.',
     ctaLabel: 'Recheck native status',
     action: 'refreshNativeStatus',
   },
   codex_protocol_drift: {
     title: 'Native status blocked',
-    msg: 'The native probe is on but its status format was not recognized — try a recheck.',
+    msg: 'The native probe is on but its status format was not recognized; try a recheck.',
     ctaLabel: 'Recheck native status',
     action: 'refreshNativeStatus',
   },
   codex_native_status_unavailable: {
     title: 'Native status blocked',
-    msg: 'The native probe is on but returned no usable status — try a recheck.',
+    msg: 'The native probe is on but returned no usable status; try a recheck.',
     ctaLabel: 'Recheck native status',
     action: 'refreshNativeStatus',
   },
   codex_probe_pending: {
     title: 'Awaiting native status',
-    msg: 'The native probe is on — waiting for its first status. Try a recheck in a moment.',
+    msg: 'The native probe is on, waiting for its first status. Try a recheck in a moment.',
     ctaLabel: 'Recheck native status',
     action: 'refreshNativeStatus',
   },
@@ -192,7 +192,7 @@ const SETUP_BY_REASON: Partial<Record<CockpitFieldReason, SetupSpec>> = {
 function windowResetPendingSpec(agentLabel: string): SetupSpec {
   return {
     title: 'Waiting for a fresh sample',
-    msg: `${agentLabel} has not reported a fresh limit window yet — the previous window already reset. Continue a ${agentLabel} response, then recheck.`,
+    msg: `${agentLabel} has not reported a fresh limit window yet; the previous window already reset. Continue a ${agentLabel} response, then recheck.`,
     ctaLabel: 'Recheck native status',
     action: 'refreshNativeStatus',
   };
@@ -204,7 +204,7 @@ function windowResetPendingSpec(agentLabel: string): SetupSpec {
 // denying the user's configuration is the worst first-run debugging experience.
 const DEFAULT_SETUP: SetupSpec = {
   title: 'No native status',
-  msg: 'TokenGauge could not read a native status for this agent on the last check. If you have configured a source, verify it — Diagnostics has details.',
+  msg: 'TokenGauge could not read a native status for this agent on the last check. If you have configured a source, verify it; Diagnostics has details.',
   ctaLabel: 'Configure Cockpit',
   action: 'configureCockpit',
 };

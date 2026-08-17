@@ -340,7 +340,7 @@ suite('leaf components', () => {
     const out = PrivacyFooter({ agentLabel: 'Claude Code' });
     const text = textContent(out);
     assert.match(text, /Reported by Claude Code/);
-    assert.match(text, /Reads only your agent's status — never your prompts, code, or logs/);
+    assert.match(text, /Reads only your agent's status, never your prompts, code, or logs/);
   });
 
   test('SummaryStatus: stale tone maps to the warn dot; text is shown', () => {

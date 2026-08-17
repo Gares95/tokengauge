@@ -37,16 +37,16 @@ export const REASON_COPY: Record<CockpitFieldReason, string> = {
   codex_probe_failed: 'Codex status probe failed',
   codex_probe_timeout: 'Codex status probe timed out',
   codex_probe_no_response:
-    'Codex native probe unavailable — codex app-server returned no response (it may require an interactive terminal in this environment)',
+    'Codex native probe unavailable: codex app-server returned no response (it may require an interactive terminal in this environment)',
   codex_cli_not_found: 'Codex CLI not found by TokenGauge',
   codex_protocol_drift: 'Codex status format not recognized',
   codex_probe_temporarily_unavailable: 'Temporarily unavailable · showing last-known',
   codex_probe_parse_failed_after_valid: 'Status format not recognized · showing last-known',
   codex_probe_no_data_after_valid: 'No current status · showing last-known',
-  codex_probe_pending: 'Native probe pending — awaiting first status',
+  codex_probe_pending: 'Native probe pending, awaiting first status',
   codex_probe_stale: 'Stale · showing last-known',
   codex_context_unavailable:
-    'Context unavailable — Codex app-server does not expose current session context.',
+    'Context unavailable: Codex app-server does not expose current session context.',
   statusline_snapshot_not_configured: 'Claude statusLine snapshot not configured',
   statusline_snapshot_missing_rate_limits:
     'Claude statusLine snapshot read, but no 5h/weekly limit fields were reported',
@@ -55,10 +55,10 @@ export const REASON_COPY: Record<CockpitFieldReason, string> = {
   native_temporarily_unavailable: 'Temporarily unavailable · showing last-known',
   snapshot_incomplete_after_valid: 'Snapshot incomplete · showing last-known',
   context_session_specific_collision:
-    'Context is session-specific — unavailable while multiple Claude sessions share this snapshot',
+    'Context is session-specific: unavailable while multiple Claude sessions share this snapshot',
   cost_session_specific_collision:
-    'Cost is session-specific — unavailable while multiple Claude sessions share this snapshot',
-  native_window_reset_pending: 'Waiting for a fresh sample — the limit window reset',
+    'Cost is session-specific: unavailable while multiple Claude sessions share this snapshot',
+  native_window_reset_pending: 'Waiting for a fresh sample: the limit window reset',
   no_source: 'No data source configured for this agent',
   no_candidate: 'No usage data yet',
 };
@@ -236,7 +236,7 @@ function TechnicalDetails({ card }: { readonly card: GaugeCardViewModel }) {
       )}
       {card.costLabel !== undefined ? (
         <div className="tg-context-note">
-          {`Cost ${card.costLabel} — reported by the agent, not a bill`}
+          {`Cost ${card.costLabel} (reported by the agent, not a bill)`}
         </div>
       ) : costReason !== undefined ? (
         <div className="tg-context-note">{costReason}</div>

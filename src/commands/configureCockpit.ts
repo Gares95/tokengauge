@@ -181,7 +181,7 @@ async function openCodexSettings(
   const scope = deps.codexProbeScope?.();
   if (scope === 'workspace' || scope === 'workspaceFolder') {
     deps.showInfo?.(
-      'Codex native probe is enabled in Workspace settings — change the Workspace value to turn it off (Workspace settings override your User setting).',
+      'Codex native probe is enabled in Workspace settings: change the Workspace value to turn it off (Workspace settings override your User setting).',
     );
     await deps.executeCommand('workbench.action.openWorkspaceSettings', query);
     return {

@@ -251,7 +251,7 @@ suite('Cockpit app messaging', () => {
     assert.ok(!/Context/.test(off), 'no Context row by default');
     assert.match(
       off,
-      /Reads only your agent's status — never your prompts, code, or logs/,
+      /Reads only your agent's status, never your prompts, code, or logs/,
       'the privacy footer is always present',
     );
 
