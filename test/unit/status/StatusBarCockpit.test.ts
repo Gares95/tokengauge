@@ -9,11 +9,14 @@
 //   - the compact Codex hint says "off" ONLY when the probe is actually disabled
 //   - degraded/collision/unavailable states are honest, NEVER "no usage yet"
 //   - risk warning/critical maps to the status-bar warning background
-//   - the tooltip is PLAIN-LANGUAGE: agent, model, a native-reported/non-billing
-//     honesty cue, a plain last-known/unavailable state line, and the "Open the
-//     TokenGauge Cockpit" action — NEVER raw internal ids (sourceTier /
-//     accuracyLabel / confidence / freshness), NEVER "local logs / last sync never
-//     / accuracy unknown", NEVER a raw path/id/credential.
+//   - the tooltip is PLAIN-LANGUAGE and covers EVERY visible card: per agent its
+//     model, one line per REPORTED window with used% and reset time, a
+//     native-reported/non-billing honesty cue, and the "Open the TokenGauge
+//     Cockpit" action. An unreported window gets no line (never a fabricated 0%);
+//     cost and context stay off the hover, matching the default card — NEVER raw
+//     internal ids (sourceTier / accuracyLabel / confidence / freshness), NEVER
+//     "local logs / last sync never / accuracy unknown", NEVER a raw
+//     path/id/credential.
 //   - the command target is the cockpit focus, NOT the legacy dashboard.
 
 import * as assert from 'node:assert/strict';
@@ -236,10 +239,11 @@ suite('StatusBar native cockpit formatter', () => {
 
   // The tooltip read `session` directly as well, so a working weekly-only card
   // was described as unavailable.
-  test('Weekly-only primary card tooltip reports native data, not unavailable', () => {
+  test('Weekly-only primary card tooltip reports its window, not unavailable', () => {
     const tip = buildCockpitStatusTooltip([weeklyOnlyCodexCard()]);
-    assert.ok(/showing native status data/i.test(tip), 'a promoted value is live native data');
+    assert.ok(/Weekly: 42% used/.test(tip), `weekly window must be reported, got: ${tip}`);
     assert.ok(!/currently unavailable/i.test(tip), 'never described as unavailable');
+    assert.ok(!/available yet/i.test(tip), 'never described as having no window');
   });
 
   // The bar and the card must agree on WHICH window is primary. The card's rule
@@ -368,6 +372,87 @@ suite('StatusBar native cockpit formatter', () => {
     assert.ok(/last known/i.test(tip), 'plain last-known cue');
     assert.ok(!/Freshness:/i.test(tip), 'no raw "Freshness:" line');
     assert.ok(!tip.includes('degraded'), 'no raw "degraded" id in the tooltip');
+  });
+
+  // The hover is the only surface with room for the numbers. It used to carry
+  // none: no window percentages, no reset times, and nothing at all about the
+  // second agent even though the bar text named it.
+  test('Tooltip reports each window with its used% and reset time', () => {
+    const tip = buildCockpitStatusTooltip([claudeCard()]);
+    assert.ok(/5-hour: 84% used, resets 17:30/.test(tip), `5h line missing, got: ${tip}`);
+    assert.ok(/Weekly: 40% used/.test(tip), `weekly line missing, got: ${tip}`);
+  });
+
+  test('Tooltip covers every visible card, not only the primary one', () => {
+    const tip = buildCockpitStatusTooltip([claudeCard(), weeklyOnlyCodexCard()]);
+    assert.ok(/Claude Code/.test(tip), 'primary agent present');
+    assert.ok(/5-hour: 84% used/.test(tip), 'primary agent window present');
+    assert.ok(/^Codex$/m.test(tip), 'secondary agent gets its own block');
+    assert.ok(/Weekly: 42% used/.test(tip), 'secondary agent window present');
+  });
+
+  // The case that prompted this: a window at 100% is exactly when the reset time
+  // matters most, so it must be on the hover.
+  test('An exhausted window still reports when it resets', () => {
+    const tip = buildCockpitStatusTooltip([
+      weeklyOnlyCodexCard({
+        weekly: {
+          usedPct: 100,
+          leftPct: 0,
+          centerLabel: '100%',
+          subLabel: '0% left · resets Mon Aug 25, 02:00',
+          state: 'fresh',
+        },
+        risk: 'critical',
+      }),
+    ]);
+    assert.ok(/Weekly: 100% used, resets Mon Aug 25, 02:00/.test(tip), `got: ${tip}`);
+  });
+
+  // An unreported window must produce NO line rather than a fabricated 0%.
+  test('Tooltip omits unreported windows instead of showing a zero', () => {
+    const tip = buildCockpitStatusTooltip([weeklyOnlyCodexCard()]);
+    assert.ok(!/5-hour/.test(tip), 'an unreported 5h window gets no line');
+    assert.ok(!/0% used/.test(tip), 'never a fabricated zero for a missing window');
+  });
+
+  // A card with no window at all says so plainly, with no number.
+  test('Tooltip states a valueless card plainly, with no number', () => {
+    const tip = buildCockpitStatusTooltip([codexCard()]);
+    assert.ok(/Codex/.test(tip), 'the card is still named');
+    assert.ok(/available yet|currently unavailable/i.test(tip), 'plain absence line');
+    assert.ok(!/% used/.test(tip), 'no percentage for a valueless card');
+  });
+
+  // Per-window last-known marking replaces the old card-wide state line.
+  test('Tooltip marks a retained window value in place', () => {
+    const tip = buildCockpitStatusTooltip([
+      claudeCard({
+        session: {
+          usedPct: 84,
+          leftPct: 16,
+          centerLabel: '84%',
+          subLabel: '16% left · resets 17:30',
+          state: 'degraded',
+          reason: 'snapshot_writer_collision',
+        },
+        freshness: 'degraded',
+      }),
+    ]);
+    assert.ok(/5-hour: 84% used, resets 17:30 \(last known\)/.test(tip), `got: ${tip}`);
+  });
+
+  // Cost and context are the technical details the cards hide by default; the
+  // hover must not contradict that default by surfacing them anyway.
+  test('Tooltip omits cost and context, matching the default card', () => {
+    const tip = buildCockpitStatusTooltip([
+      claudeCard({
+        costLabel: '$1.23',
+        context: { usedPct: 45, centerLabel: '45%', state: 'fresh' },
+      }),
+    ]);
+    assert.ok(!/\$1\.23/.test(tip), 'no cost on the hover');
+    assert.ok(!/Context/i.test(tip), 'no context meter on the hover');
   });
 
   test('Tooltip NEVER carries the legacy log-derived strings', () => {
