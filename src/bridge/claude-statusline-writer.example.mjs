@@ -187,6 +187,37 @@ async function readStdin() {
   return input;
 }
 
+// Claude Code renders the FIRST stdout line of statusLine.command as your whole
+// status line, so this line is the only thing that occupies that space once you
+// point statusLine.command here. Spend it on the numbers Claude Code just handed
+// us rather than a fixed confirmation string: a terminal-only session cannot see
+// TokenGauge's VS Code surfaces at all, and this is the same data, at the point
+// of attention, for free.
+//
+// ACCOUNT-LEVEL ONLY. Both windows are account-wide, so this line reads the same
+// in every concurrent session and window. Session-local values (the model, the
+// context window, cost) are deliberately left out: printing one beside
+// account-level percentages would imply the percentages belong to that session.
+
+// A window contributes a part only when it carries a real percentage. A window
+// Claude Code did not report is omitted, never rendered as 0%.
+function windowPart(window, label) {
+  const used = window?.used_percentage;
+  return typeof used === 'number' ? `${used}% ${label}` : undefined;
+}
+
+// Claude Code reports rate_limits only for Claude.ai subscription sessions, and
+// only after the session's first response, so the no-window case is normal and
+// must read honestly. It also keeps the confirmation value of the old fixed
+// string in exactly the case where there is no number to show.
+function statusLine(snapshot) {
+  const parts = [
+    windowPart(snapshot.rate_limits?.five_hour, '5h'),
+    windowPart(snapshot.rate_limits?.seven_day, 'wk'),
+  ].filter((part) => part !== undefined);
+  return parts.length > 0 ? parts.join(' · ') : 'no limit fields yet';
+}
+
 async function main() {
   const { mode, target } = parseArgs(argv.slice(2));
   let payload;
@@ -199,7 +230,7 @@ async function main() {
 
   const snapshot = buildSnapshot(payload);
   writeAtomic(outputPathFor(mode, target, snapshot), snapshot);
-  stdout.write('TokenGauge snapshot updated\n');
+  stdout.write(`${statusLine(snapshot)}\n`);
 }
 
 main().catch((error) => {

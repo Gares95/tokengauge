@@ -33,11 +33,11 @@ function cleanDocs() {
       'Use this block in Bash-like shells only. It is not PowerShell syntax. ' +
       'Run node --version first. TokenGauge does not install Node or Claude Code. ' +
       "mkdir -p ~/.tokengauge/claude\ncat > ~/.tokengauge/claude/claude-statusline-writer.mjs <<'TOKENGAUGE_STATUSLINE'\n" +
-      'function outputPathFor(mode, target, snapshot) {}\nTokenGauge snapshot updated\n' +
+      'function outputPathFor(mode, target, snapshot) {}\nfunction statusLine(snapshot) {}\n' +
       'TOKENGAUGE_STATUSLINE\nrealpath ~/.tokengauge/claude/claude-statusline-writer.mjs\n' +
       '#### PowerShell\n' +
       "$writer = Join-Path $HOME '.tokengauge\\claude\\claude-statusline-writer.mjs'\n" +
-      "@'\nfunction outputPathFor(mode, target, snapshot) {}\nTokenGauge snapshot updated\n'@ | Set-Content -Path $writer -Encoding utf8\n" +
+      "@'\nfunction outputPathFor(mode, target, snapshot) {}\nfunction statusLine(snapshot) {}\n'@ | Set-Content -Path $writer -Encoding utf8\n" +
       'node --check $writer\n(Resolve-Path $writer).Path\n' +
       'If you intentionally keep a custom shell writer instead. ' +
       'Create claude-statusline-writer.mjs and validate it with node --check. ' +

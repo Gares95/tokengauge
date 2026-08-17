@@ -263,7 +263,7 @@ forbidPhrases(
     !bashBlock.includes('mkdir -p ~/.tokengauge/claude') ||
     !bashBlock.includes('realpath ~/.tokengauge/claude/claude-statusline-writer.mjs') ||
     !bashBlock.includes('function outputPathFor(mode, target, snapshot)') ||
-    !bashBlock.includes('TokenGauge snapshot updated')
+    !bashBlock.includes('function statusLine(snapshot)')
   ) {
     fail('missing-bash-writer-setup', 'README.md');
   }
@@ -280,7 +280,7 @@ forbidPhrases(
     !powerShellBlock.includes('node --check $writer') ||
     !powerShellBlock.includes('(Resolve-Path $writer).Path') ||
     !powerShellBlock.includes('function outputPathFor(mode, target, snapshot)') ||
-    !powerShellBlock.includes('TokenGauge snapshot updated')
+    !powerShellBlock.includes('function statusLine(snapshot)')
   ) {
     fail('missing-powershell-writer-setup', 'README.md');
   }
