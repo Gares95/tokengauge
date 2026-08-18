@@ -733,6 +733,83 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
         },
       });
     }),
+    // The one-command Claude setup. It writes OUR writer and OUR
+    // setting, then shows the user the exact line to paste. It never writes
+    // ~/.claude/settings.json — that promise is public and guarded — and never
+    // flips a privacy toggle. Every side effect is supplied here as a seam so the
+    // command module stays gate-clean and unit-testable.
+    vscode.commands.registerCommand('tokenGauge.setupClaudeStatusline', async () => {
+      const [{ runSetupClaudeStatusline }, { homedir }, { join }, fs, { execFile }] =
+        await Promise.all([
+          import('./commands/setupClaudeStatusline.js'),
+          import('node:os'),
+          import('node:path'),
+          import('node:fs/promises'),
+          import('node:child_process'),
+        ]);
+      return runSetupClaudeStatusline({
+        homeDir: homedir,
+        join,
+        // The canonical writer, copied into dist/ at build time by
+        // tools/build-writer-asset.mjs. Read from the installed extension, never
+        // reconstructed here: this project carries exactly one writer body.
+        readCanonicalWriter: async () =>
+          fs.readFile(
+            vscode.Uri.joinPath(context.extensionUri, 'dist', 'claude-statusline-writer.mjs')
+              .fsPath,
+            'utf8',
+          ),
+        ensureDir: async (dir) => {
+          await fs.mkdir(dir, { recursive: true, mode: 0o700 });
+        },
+        writeFile: async (file, contents) => {
+          await fs.writeFile(file, contents, { encoding: 'utf8', mode: 0o600 });
+        },
+        // Closed boolean only; node's stderr never reaches a surface.
+        syntaxCheck: (file) =>
+          new Promise<boolean>((resolve) => {
+            execFile(process.execPath, ['--check', file], { timeout: 10_000 }, (error) => {
+              resolve(error === null || error === undefined);
+            });
+          }),
+        writeSnapshotPathSetting: async (value, scope) => {
+          const target =
+            scope === 'workspaceFolder'
+              ? vscode.ConfigurationTarget.WorkspaceFolder
+              : scope === 'workspace'
+                ? vscode.ConfigurationTarget.Workspace
+                : vscode.ConfigurationTarget.Global;
+          await vscode.workspace
+            .getConfiguration('tokenGauge')
+            .update('claude.statuslineSnapshotPath', value, target);
+        },
+        // Write where THIS extension host reads. A Remote/WSL/Dev Container
+        // window does not read local User settings, which is the most common
+        // reason a correct-looking setup shows nothing.
+        targetScope: () => {
+          if (
+            vscode.env.remoteName !== undefined &&
+            vscode.workspace.workspaceFolders !== undefined
+          )
+            return 'workspace';
+          return 'user';
+        },
+        remoteName: () => vscode.env.remoteName,
+        renderReport: async (markdown) => {
+          const doc = await vscode.workspace.openTextDocument({
+            content: markdown,
+            language: 'markdown',
+          });
+          await vscode.window.showTextDocument(doc, { preview: true });
+        },
+        showInfo: (message) => {
+          notifyCommandResult('info', message);
+        },
+        showError: (message) => {
+          notifyCommandResult('error', message);
+        },
+      });
+    }),
     vscode.commands.registerCommand('tokenGauge.openPrivacyReport', async () => {
       const { runOpenPrivacyReport } = await import('./commands/openPrivacyReport.js');
       return runOpenPrivacyReport({

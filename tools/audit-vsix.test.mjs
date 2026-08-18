@@ -24,6 +24,11 @@ const baseEntries = [
     content: packageEntryContent,
   },
   { path: 'extension/dist/extension.js', content: 'module.exports = {};\n' },
+  // shipped so the Set Up Claude statusLine command can write it at runtime
+  {
+    path: 'extension/dist/claude-statusline-writer.mjs',
+    content: '// TOKENGAUGE_STATUSLINE_WRITER_START\n',
+  },
   {
     // The clean fixture's cockpit.js must carry the current copy
     // sentinels so the stale-asset gate passes on a current bundle.
