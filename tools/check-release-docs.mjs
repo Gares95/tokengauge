@@ -253,6 +253,11 @@ forbidPhrases(
     fail('missing-bash-writer-setup', 'README.md');
   }
 
+  // The writer body appears ONCE, in the Bash block above. The PowerShell section
+  // saves and verifies that same body rather than repeating it, so this rule
+  // asserts the save-and-verify recipe (target path, write, syntax check, and the
+  // absolute path the user needs for statusLine.command) instead of a second copy.
+  // Requiring a body here is what produced two copies of the same 236 lines.
   const powerShellBlock = sectionBetween(
     'README.md',
     '#### PowerShell',
@@ -260,14 +265,20 @@ forbidPhrases(
   );
   if (
     !powerShellBlock.includes('$writer = Join-Path $HOME') ||
-    !powerShellBlock.includes("@'") ||
-    !powerShellBlock.includes("'@ | Set-Content -Path $writer -Encoding utf8") ||
+    !powerShellBlock.includes('New-Item -ItemType Directory -Force') ||
+    !powerShellBlock.includes('Set-Content -Path $writer -Encoding utf8') ||
     !powerShellBlock.includes('node --check $writer') ||
-    !powerShellBlock.includes('(Resolve-Path $writer).Path') ||
-    !powerShellBlock.includes('function outputPathFor(mode, target, snapshot)') ||
-    !powerShellBlock.includes('function statusLine(snapshot)')
+    !powerShellBlock.includes('(Resolve-Path $writer).Path')
   ) {
     fail('missing-powershell-writer-setup', 'README.md');
+  }
+  // The PowerShell section must ROUTE to the single writer body rather than
+  // reintroducing one: a second copy here is exactly the drift this removes.
+  if (
+    powerShellBlock.includes('function outputPathFor(mode, target, snapshot)') ||
+    powerShellBlock.includes('TOKENGAUGE_STATUSLINE_WRITER_START')
+  ) {
+    fail('duplicate-powershell-writer-body', 'README.md');
   }
   for (const stale of [
     "cat > ~/.tokengauge/claude/claude-statusline-writer.mjs <<'TOKENGAUGE_STATUSLINE'",
