@@ -23,6 +23,11 @@ or transcripts.
 - **Honest by construction.** Every number is tracked with an accuracy label — current v1 emits `proxy_reported` (native-reported) or `unknown`; see [ACCURACY.md](ACCURACY.md) for the full declared taxonomy. Cards surface the label as plain-language provenance, and Cockpit Diagnostics exposes the raw labels. Missing cost reads `cost unknown`, never a believable `$0.00`.
 - **Native-first.** The cockpit reads current limit state from native agent surfaces. It does **not** need your conversation logs to work, and reads none by default.
 - **Privacy-first.** Local-only. No developer-controlled telemetry, no default outbound network calls, no prompts/completions/source/secrets ever read or stored.
+- **No credentials, no network.** TokenGauge never reads your Claude or Codex
+  credentials and makes no outbound network calls of its own. Every number comes
+  from a surface your tools already expose locally, which is why the Claude card
+  needs a short one-time setup. See
+  [Why this needs setup](#why-this-needs-setup).
 - **Multi-agent.** Claude Code and Codex native cockpit cards today; an adapter contract lets more sources be added without core changes.
 - **Clear limits.** Track per-agent 5h and weekly windows, reset timing, and context where exposed, with each gauge's risk state shown via text + color (not color alone).
 
@@ -109,6 +114,13 @@ and is native-first: it does not scan your conversation logs by default.
 - It does **not** read prompts, completions, source code, file contents, terminal output, tool arguments or results, arbitrary environment variables, secrets, OAuth tokens, cookies, raw transcripts, or git remote URLs.
 - It does **not** attach to or inspect the internal state of the official Claude Code or Codex VS Code extensions. It only reads the local native surfaces described under [Sources](#sources).
 - For the opt-in Codex probe, it may inspect a small allowlisted set of process environment metadata (such as `HOME`, `SHELL`, `PATH`, `XDG_*`, locale/user variables like `LANG`, `USER`, `TERM`, `TMPDIR`, plus `CODEX_HOME`, `NVM_DIR`, `NVM_BIN`, and their Windows equivalents) for two purposes: locating your local `codex` executable, and passing a bounded environment to the spawned `codex` process so your own tool can find its own config and credentials. If `codex` is not on the extension host's `PATH`, TokenGauge may run your own shell non-interactively to resolve it. Login-capable shells such as Bash or Zsh use `$SHELL -lc 'command -v codex'`; `sh` and `dash` use `-c` instead. Raw environment values and resolved executable paths are not shown in UI/diagnostics and are not persisted as usage data.
+- It does **not** read your provider credential stores, such as
+  `~/.claude/.credentials.json`, `~/.codex/auth.json`, or the equivalent OS
+  keychain entries, and it never refreshes or rewrites a credential.
+- It does **not** call a provider API on your behalf. TokenGauge itself makes no
+  network request at all; the only process that ever contacts a provider is your
+  own `codex` executable, when you explicitly enable the Codex probe, using its
+  own existing login.
 - It does **not** intercept HTTPS traffic from other extensions or the system (no MITM).
 - It does **not** auto-install tooling or make network calls to obtain it.
 - It does **not** send any telemetry to the TokenGauge authors.
@@ -250,6 +262,30 @@ logs.
 The statusLine feature runs in Claude Code **CLI terminal sessions**; sessions
 in the Claude Code VS Code extension's graphical panel do not run it (see
 [Requirements and supported setups](#requirements-and-supported-setups)).
+
+### Why this needs setup
+
+Claude Code reports your 5-hour and weekly limits to exactly one local surface:
+the statusLine command. Those percentages are not in your conversation logs, not
+in any other documented hook, and not in any other file on disk. A tool that only
+reads local files cannot show them.
+
+There is another way to obtain them, and TokenGauge deliberately does not take
+it: reading the OAuth token Claude Code stores on your machine and querying
+Anthropic with it. Those credentials are yours, Anthropic's Consumer Terms
+reserve automated access for API keys, and the account that would carry the risk
+is yours rather than ours. TokenGauge asks for a few minutes of setup instead of
+your credentials.
+
+The setup also buys more than parity:
+
+- **Fresher numbers.** The writer runs whenever Claude Code updates its status
+  line, which includes every assistant response, so your gauges reflect your most
+  recent turn rather than the last time a background poll happened to run.
+- **A usage readout in your terminal.** Because the writer runs inside Claude
+  Code, your status line shows your account windows (`32% 5h · 12% wk`) right
+  where you are working, not only in the VS Code sidebar. See
+  [What your Claude status line will show](#what-your-claude-status-line-will-show).
 
 ### How it fits together
 
