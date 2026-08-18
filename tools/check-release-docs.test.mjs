@@ -18,8 +18,22 @@ function assert(condition, message) {
 function cleanDocs() {
   return {
     'package.json': JSON.stringify({ version: pkgVersion }),
+    // reference material split out of the packaged README: the guidance must
+    // still exist, in the document that now carries it.
+    'docs/troubleshooting.md':
+      '# Troubleshooting\n\nstrict schema rejects leaky or malformed snapshots. ' +
+      'Point the setting at the snapshot, not the writer script. ' +
+      'statusline_snapshot_missing_rate_limits means the snapshot file exists but the ' +
+      'Claude card still shows no gauge; that is not a path problem and TokenGauge ' +
+      'will not guess a usage window. Run claude auth status and claude doctor. ' +
+      'Do not paste raw auth output. The card updates as soon as Claude Code reports.\n',
+    'docs/remote-setups.md':
+      '# Remote\n\nUse Remote settings rather than Local User settings. ' +
+      'Same-host setup is preferred. Cross-host paths are not the recommended setup.\n',
+    'docs/multiple-sessions.md': '# Multiple sessions\n\naccuracy is preserved per account.\n',
     'README.md':
-      '# TokenGauge\n\nGitHub Release first distribution. Native multi-agent gauge cockpit for Codex and Claude. ' +
+      '# TokenGauge\n\nSee docs/troubleshooting.md, docs/remote-setups.md and docs/multiple-sessions.md. ' +
+      'GitHub Release first distribution. Native multi-agent gauge cockpit for Codex and Claude. ' +
       'no developer-controlled telemetry and no default outbound network. accuracy labeled.\n\n' +
       'TokenGauge is a native multi-agent gauge cockpit. It is native-first and ' +
       'does not scan your conversation logs by default.\n\n' +
