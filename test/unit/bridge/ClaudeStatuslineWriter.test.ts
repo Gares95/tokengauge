@@ -108,6 +108,10 @@ function extractBetween(text: string, start: string, end: string): string {
     .replace(/\r?\n$/, '');
 }
 
+// The README carries the writer body EXACTLY ONCE. Every platform copies that
+// one block, so there is no second copy able to drift away from the canonical
+// source; the PowerShell section saves and verifies this same body rather than
+// repeating it.
 function assertReadmeCopiesMatch(readmeText: string): void {
   const canonical = readFileSync(writerPath, 'utf8').trimEnd();
   const bashBody = extractBetween(
@@ -115,16 +119,11 @@ function assertReadmeCopiesMatch(readmeText: string): void {
     "cat > ~/.tokengauge/claude/claude-statusline-writer.mjs <<'TOKENGAUGE_STATUSLINE'",
     '\nTOKENGAUGE_STATUSLINE\n',
   );
-  const powerShellBody = extractBetween(
-    readmeText,
-    "@'\n",
-    "\n'@ | Set-Content -Path $writer -Encoding utf8",
-  );
-  assert.equal(bashBody, canonical, 'README Bash writer body must match canonical source');
+  assert.equal(bashBody, canonical, 'README writer body must match canonical source');
   assert.equal(
-    powerShellBody,
-    canonical,
-    'README PowerShell writer body must match canonical source',
+    readmeText.split('TOKENGAUGE_STATUSLINE_WRITER_START').length - 1,
+    1,
+    'the README must carry exactly one writer body',
   );
 }
 
@@ -462,7 +461,7 @@ suite('Claude statusLine canonical writer', () => {
     }
   });
 
-  test('README Bash and PowerShell bodies match the canonical writer exactly', () => {
+  test('the README carries exactly one writer body, matching canonical', () => {
     const readme = readFileSync(readmePath, 'utf8');
     assertReadmeCopiesMatch(readme);
 

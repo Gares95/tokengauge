@@ -51,7 +51,10 @@ function cleanDocs() {
       'TOKENGAUGE_STATUSLINE\nrealpath ~/.tokengauge/claude/claude-statusline-writer.mjs\n' +
       '#### PowerShell\n' +
       "$writer = Join-Path $HOME '.tokengauge\\claude\\claude-statusline-writer.mjs'\n" +
-      "@'\nfunction outputPathFor(mode, target, snapshot) {}\nfunction statusLine(snapshot) {}\n'@ | Set-Content -Path $writer -Encoding utf8\n" +
+      // the PowerShell section saves the ONE writer body from the Bash block
+      // above; a second body here now fails duplicate-powershell-writer-body.
+      'New-Item -ItemType Directory -Force -Path (Split-Path $writer)\n' +
+      'Get-Clipboard | Set-Content -Path $writer -Encoding utf8\n' +
       'node --check $writer\n(Resolve-Path $writer).Path\n' +
       'If you intentionally keep a custom shell writer instead. ' +
       'Create claude-statusline-writer.mjs and validate it with node --check. ' +
