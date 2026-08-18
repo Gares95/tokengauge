@@ -190,7 +190,6 @@ requirePhrases(
     'TokenGauge reads only that exact directory, non-recursively',
     'up to 32 hash-named snapshot files',
     'never deletes snapshot files',
-    'strict schema rejects leaky or malformed snapshots',
     'TOKENGAUGE_STATUSLINE',
     'claude-statusline-writer.mjs',
     '#### WSL, Linux, macOS, or Git Bash',
@@ -211,26 +210,12 @@ requirePhrases(
     '--file C:/Users/YOUR_USER/.tokengauge/claude/statusline-snapshot.json',
     'C:/Users/YOUR_USER/.tokengauge/claude/statusline-snapshot.json',
     'do not run bare `/statusline`',
-    'not the writer script',
-    'statusline_snapshot_missing_rate_limits',
-    'snapshot file exists but the Claude card still shows no gauge',
-    'not a path problem',
-    'will not guess a usage window',
-    'claude auth status',
-    'claude doctor',
-    'Do not paste raw auth output',
-    'as soon as Claude Code reports',
     'Use the absolute writer path',
     '`Resolve-Path`',
     'Merge it into the existing JSON object; do not',
-    'Remote settings',
-    'Local User settings',
     'Configure snapshot path',
     'Claude Code must already run in the same environment',
     'fix Claude Code first',
-    'Same-host setup is preferred',
-    'Cross-host paths',
-    'not the recommended',
     'tokenGauge.providers.codex.nativeStatusProbe',
     'tokenGauge.display.cards.claude.visible',
     'tokenGauge.display.cards.codex.visible',
@@ -469,6 +454,48 @@ if (docs['docs/setup/wsl.md'] !== undefined) {
   );
 }
 
+// reference-doc guidance (split from README): Troubleshooting, remote-boundary,
+// and multi-session guidance moved out of the README to keep the packaged
+// Marketplace listing readable. The guidance itself is still REQUIRED to exist
+// and stay discoverable; these rules pin it to the document that now carries it,
+// so the split cannot quietly drop it.
+const REFERENCE_DOCS = {
+  'docs/troubleshooting.md': [
+    'strict schema rejects leaky or malformed snapshots',
+    'not the writer script',
+    'statusline_snapshot_missing_rate_limits',
+    'snapshot file exists but the Claude card still shows no gauge',
+    'not a path problem',
+    'will not guess a usage window',
+    'claude auth status',
+    'claude doctor',
+    'Do not paste raw auth output',
+    'as soon as Claude Code reports',
+  ],
+  'docs/remote-setups.md': [
+    'Local User settings',
+    'Same-host setup is preferred',
+    'Cross-host paths',
+    'not the recommended',
+    'Remote settings',
+  ],
+};
+for (const [file, phrases] of Object.entries(REFERENCE_DOCS)) {
+  const content = read(file);
+  if (content === null) {
+    fail('missing-reference-doc', file);
+    continue;
+  }
+  docs[file] = content;
+  requirePhrases(file, phrases, 'missing-reference-guidance');
+}
+// the README must still ROUTE readers to each split document
+requirePhrases(
+  'README.md',
+  ['docs/troubleshooting.md', 'docs/remote-setups.md', 'docs/multiple-sessions.md'],
+  'missing-reference-links',
+);
+
 // packaged-link closure (17-F01): vsce rewrites relative links in the packaged
 // README/CHANGELOG to absolute GitHub blob/HEAD URLs on the default branch.
 // Under approved Strategy B the public default branch equals this tree at
@@ -485,6 +512,10 @@ const APPROVED_RELATIVE_TARGETS = new Set([
   'SECURITY.md',
   'THIRD_PARTY_NOTICES.md',
   'docs/adr/ADR-004-native-only-privacy-model.md',
+  // reference material split out of the packaged README
+  'docs/troubleshooting.md',
+  'docs/remote-setups.md',
+  'docs/multiple-sessions.md',
   // 17-G01 reviewed extension: repo-only setup guides plus the two approved
   // GitHub-only README images (D4: media stays excluded from the VSIX; vsce
   // serves these via rewritten GitHub URLs).
