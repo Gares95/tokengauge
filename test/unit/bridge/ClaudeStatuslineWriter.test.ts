@@ -22,6 +22,7 @@ import { findRepoRoot } from '../../_helpers/repoRoot';
 const repoRoot = findRepoRoot();
 const writerPath = path.join(repoRoot, 'src', 'bridge', 'claude-statusline-writer.example.mjs');
 const readmePath = path.join(repoRoot, 'README.md');
+const writerDocPath = path.join(repoRoot, 'docs', 'claude-statusline-writer.md');
 const fixturePath = path.join(
   repoRoot,
   'test',
@@ -109,22 +110,22 @@ function extractBetween(text: string, start: string, end: string): string {
     .replace(/\r?\n$/, '');
 }
 
-// The README carries the writer body EXACTLY ONCE. Every platform copies that
-// one block, so there is no second copy able to drift away from the canonical
-// source; the PowerShell section saves and verifies this same body rather than
-// repeating it.
-function assertReadmeCopiesMatch(readmeText: string): void {
+// The writer body lives in docs/claude-statusline-writer.md and appears EXACTLY
+// ONCE. Every platform copies that one block, so no second copy can drift from
+// the canonical source; the PowerShell section saves and verifies this same body
+// rather than repeating it. The packaged README must carry no body at all.
+function assertWriterDocCopyMatches(docText: string): void {
   const canonical = readFileSync(writerPath, 'utf8').trimEnd();
   const bashBody = extractBetween(
-    readmeText,
+    docText,
     "cat > ~/.tokengauge/claude/claude-statusline-writer.mjs <<'TOKENGAUGE_STATUSLINE'",
     '\nTOKENGAUGE_STATUSLINE\n',
   );
-  assert.equal(bashBody, canonical, 'README writer body must match canonical source');
+  assert.equal(bashBody, canonical, 'writer-doc body must match canonical source');
   assert.equal(
-    readmeText.split('TOKENGAUGE_STATUSLINE_WRITER_START').length - 1,
+    docText.split('TOKENGAUGE_STATUSLINE_WRITER_START').length - 1,
     1,
-    'the README must carry exactly one writer body',
+    'the writer doc must carry exactly one writer body',
   );
 }
 
@@ -483,12 +484,27 @@ suite('Claude statusLine canonical writer', () => {
     }
   });
 
-  test('the README carries exactly one writer body, matching canonical', () => {
-    const readme = readFileSync(readmePath, 'utf8');
-    assertReadmeCopiesMatch(readme);
+  test('the writer doc carries exactly one body, matching canonical', () => {
+    const doc = readFileSync(writerDocPath, 'utf8');
+    assertWriterDocCopyMatches(doc);
 
     assert.throws(() =>
-      assertReadmeCopiesMatch(readme.replace("parts.join(' · ')", "parts.join(' mutated ')")),
+      assertWriterDocCopyMatches(doc.replace("parts.join(' \u00b7 ')", "parts.join(' mutated ')")),
+    );
+  });
+
+  // The README is the packaged Marketplace listing. Keeping the body out of it is
+  // the point of the split, so a body reappearing there is a regression.
+  test('the packaged README carries no writer body at all', () => {
+    const readme = readFileSync(readmePath, 'utf8');
+    assert.equal(
+      readme.includes('TOKENGAUGE_STATUSLINE_WRITER_START'),
+      false,
+      'the README must link to the writer doc, never embed the writer',
+    );
+    assert.ok(
+      readme.includes('docs/claude-statusline-writer.md'),
+      'the README must route readers to the writer doc',
     );
   });
 });

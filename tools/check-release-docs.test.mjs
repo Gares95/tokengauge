@@ -30,9 +30,26 @@ function cleanDocs() {
     'docs/remote-setups.md':
       '# Remote\n\nUse Remote settings rather than Local desktop User settings. ' +
       'Same-host setup is preferred. Cross-host paths are not the recommended setup.\n',
+    // the writer body and both platform recipes now live in their own document
+    'docs/claude-statusline-writer.md':
+      '# The Claude statusLine writer\n\n' +
+      'Claude Code must already run in the same environment; fix Claude Code first. ' +
+      'Run node --version first. TokenGauge does not install Node or Claude Code. ' +
+      'No `jq`, `sha256sum`, `chmod`, or `sed` step is needed.\n\n' +
+      '## WSL, Linux, macOS, or Git Bash\n' +
+      'Use this block in Bash-like shells only. It is not PowerShell syntax. ' +
+      "mkdir -p ~/.tokengauge/claude\ncat > ~/.tokengauge/claude/claude-statusline-writer.mjs <<'TOKENGAUGE_STATUSLINE'\n" +
+      'function outputPathFor(mode, target, snapshot) {}\nfunction statusLine(snapshot) {}\n' +
+      'TOKENGAUGE_STATUSLINE\nrealpath ~/.tokengauge/claude/claude-statusline-writer.mjs\n' +
+      '## PowerShell\n' +
+      "$writer = Join-Path $HOME '.tokengauge\\claude\\claude-statusline-writer.mjs'\n" +
+      'New-Item -ItemType Directory -Force -Path (Split-Path $writer)\n' +
+      'Get-Clipboard | Set-Content -Path $writer -Encoding utf8\n' +
+      'node --check $writer\n(Resolve-Path $writer).Path\n' +
+      'If you intentionally keep a custom shell writer instead.\n',
     'docs/multiple-sessions.md': '# Multiple sessions\n\naccuracy is preserved per account.\n',
     'README.md':
-      '# TokenGauge\n\nSee docs/troubleshooting.md, docs/remote-setups.md and docs/multiple-sessions.md. ' +
+      '# TokenGauge\n\nSee docs/troubleshooting.md, docs/remote-setups.md, docs/multiple-sessions.md and docs/claude-statusline-writer.md. ' +
       'GitHub Release first distribution. Native multi-agent gauge cockpit for Codex and Claude. ' +
       'no developer-controlled telemetry and no default outbound network. accuracy labeled.\n\n' +
       'TokenGauge is a native multi-agent gauge cockpit. It is native-first and ' +
@@ -43,19 +60,8 @@ function cleanDocs() {
       'TokenGauge reads only that exact directory, non-recursively. It considers ' +
       'up to 32 hash-named snapshot files and never deletes snapshot files. ' +
       'The strict schema rejects leaky or malformed snapshots. ' +
-      '#### WSL, Linux, macOS, or Git Bash\n' +
-      'Use this block in Bash-like shells only. It is not PowerShell syntax. ' +
-      'Run node --version first. TokenGauge does not install Node or Claude Code. ' +
-      "mkdir -p ~/.tokengauge/claude\ncat > ~/.tokengauge/claude/claude-statusline-writer.mjs <<'TOKENGAUGE_STATUSLINE'\n" +
-      'function outputPathFor(mode, target, snapshot) {}\nfunction statusLine(snapshot) {}\n' +
-      'TOKENGAUGE_STATUSLINE\nrealpath ~/.tokengauge/claude/claude-statusline-writer.mjs\n' +
-      '#### PowerShell\n' +
-      "$writer = Join-Path $HOME '.tokengauge\\claude\\claude-statusline-writer.mjs'\n" +
       // the PowerShell section saves the ONE writer body from the Bash block
       // above; a second body here now fails duplicate-powershell-writer-body.
-      'New-Item -ItemType Directory -Force -Path (Split-Path $writer)\n' +
-      'Get-Clipboard | Set-Content -Path $writer -Encoding utf8\n' +
-      'node --check $writer\n(Resolve-Path $writer).Path\n' +
       'If you intentionally keep a custom shell writer instead. ' +
       'Create claude-statusline-writer.mjs and validate it with node --check. ' +
       'Print the absolute writer path with realpath ~/.tokengauge/claude/claude-statusline-writer.mjs. ' +
@@ -233,7 +239,8 @@ runFixture(
 runFixture(
   'powershell-bash-syntax-leak',
   (docs) => {
-    docs['README.md'] = docs['README.md'].replace(
+    // the PowerShell section lives in the writer doc now, not the README
+    docs['docs/claude-statusline-writer.md'] = docs['docs/claude-statusline-writer.md'].replace(
       'node --check $writer\n(Resolve-Path $writer).Path\n',
       'node --check $writer\nrealpath ~/.tokengauge/claude/claude-statusline-writer.mjs\n',
     );
