@@ -37,13 +37,16 @@ Cockpit Diagnostics.
 > window attached to Windows (a local window, not Remote), so the file lands on that side. The steps below are the
 > manual equivalent.
 
-Use the PowerShell writer block in the README's
-**Claude Code setup** section (the `#### PowerShell` block). It creates
+The writer body is the same on every platform, so the README carries it once, in
+the `#### WSL, Linux, macOS, or Git Bash` block of the **Claude Code setup**
+section. That single block is the tested source of the writer; this guide does
+not carry a second copy of it.
+
+To create the writer by hand on Windows, copy that block, then follow the
+README's `#### PowerShell` section, which saves what you copied to
 `$HOME\.tokengauge\claude\claude-statusline-writer.mjs`, validates it with
 `node --check $writer`, and prints the absolute path with
-`(Resolve-Path $writer).Path`. That README block is the tested single source
-of the writer; this guide intentionally does not carry a second copy of the
-writer body.
+`(Resolve-Path $writer).Path`.
 
 <details>
 <summary>Animation: creating and validating the writer in PowerShell (illustrative)</summary>

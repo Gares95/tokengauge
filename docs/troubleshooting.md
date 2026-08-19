@@ -61,7 +61,8 @@ A Workspace or Folder setting can override your User setting. Run **TokenGauge:
 Cockpit Diagnostics** and check the probe's effective scope; **TokenGauge:
 Configure Cockpit** routes you to the scope that actually controls the value.
 In WSL, Remote-SSH, or Dev Container windows, also check Remote settings; local
-User settings are for local windows and may not affect the remote extension host.
+desktop User settings are for local windows and may not affect the remote
+extension host, which reads that remote's own settings files.
 
 **Claude card temporarily unavailable after sleep or network loss:**
 

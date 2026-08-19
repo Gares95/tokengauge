@@ -484,7 +484,10 @@ const REFERENCE_DOCS = {
     'as soon as Claude Code reports',
   ],
   'docs/remote-setups.md': [
-    'Local User settings',
+    // 'desktop' is load-bearing: "User settings" names a different file in a
+    // remote window than on the desktop, and conflating them sent users to edit
+    // the wrong machine's settings.
+    'Local desktop User settings',
     'Same-host setup is preferred',
     'Cross-host paths',
     'not the recommended',
