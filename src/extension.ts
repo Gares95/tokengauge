@@ -773,27 +773,26 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
             });
           }),
         writeSnapshotPathSetting: async (value, scope) => {
+          // Always User scope. The value is a MACHINE-SPECIFIC absolute path, and
+          // Workspace scope would put it in the project's .vscode/settings.json:
+          // a shared, committable file, where an absolute home path is wrong for
+          // every other machine, and which may itself be under version control.
+          // Writing a versioned project file is a close cousin of the
+          // ~/.claude/settings.json boundary we refuse to cross.
+          //
+          // In a Remote/WSL/Dev Container window this may not be the scope the
+          // extension host reads. That case is REPORTED rather than guessed
+          // around: the report names the scope written and tells the user what to
+          // check, which keeps the last step in their hands.
           const target =
-            scope === 'workspaceFolder'
-              ? vscode.ConfigurationTarget.WorkspaceFolder
-              : scope === 'workspace'
-                ? vscode.ConfigurationTarget.Workspace
-                : vscode.ConfigurationTarget.Global;
+            scope === 'workspace'
+              ? vscode.ConfigurationTarget.Workspace
+              : vscode.ConfigurationTarget.Global;
           await vscode.workspace
             .getConfiguration('tokenGauge')
             .update('claude.statuslineSnapshotPath', value, target);
         },
-        // Write where THIS extension host reads. A Remote/WSL/Dev Container
-        // window does not read local User settings, which is the most common
-        // reason a correct-looking setup shows nothing.
-        targetScope: () => {
-          if (
-            vscode.env.remoteName !== undefined &&
-            vscode.workspace.workspaceFolders !== undefined
-          )
-            return 'workspace';
-          return 'user';
-        },
+        targetScope: () => 'user',
         remoteName: () => vscode.env.remoteName,
         renderReport: async (markdown) => {
           const doc = await vscode.workspace.openTextDocument({

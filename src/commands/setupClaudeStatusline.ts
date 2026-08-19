@@ -16,8 +16,11 @@
 // existing statusLine. The user opens that file to paste, so they see any
 // existing entry themselves, and TokenGauge's read surface stays unchanged.
 //
-// The only tokenGauge setting it writes is the snapshot PATH. It never flips a
-// privacy toggle; the Codex probe stays off unless the user enables it.
+// The only tokenGauge setting it writes is the snapshot PATH, and only in USER
+// scope. It never flips a privacy toggle; the Codex probe stays off unless the
+// user enables it. It never writes Workspace scope: that lands in the project's
+// shared .vscode/settings.json, which may be under version control, and the value
+// is a machine-specific absolute path that would be wrong for everyone else.
 //
 // Every side effect is an INJECTED seam so this module stays clean against
 // tools/check-no-stray-ui-surfaces.mjs and unit-testable without booting VS Code.
@@ -31,7 +34,12 @@ export const WRITER_DIR_SEGMENTS = ['.tokengauge', 'claude'] as const;
 export const WRITER_FILENAME = 'claude-statusline-writer.mjs' as const;
 export const SNAPSHOT_FILENAME = 'statusline-snapshot.json' as const;
 
-export type SettingsScope = 'user' | 'workspace' | 'workspaceFolder';
+// The command writes User scope. The value is a machine-specific absolute path,
+// so Workspace scope would place it in the project's shared, committable
+// .vscode/settings.json, where an absolute home path is wrong on every other
+// machine. 'workspace' remains in the type because a caller may still need to
+// report it; the command never selects it itself.
+export type SettingsScope = 'user' | 'workspace';
 
 export interface SetupClaudeStatuslineDeps {
   readonly homeDir: () => string;
@@ -67,7 +75,6 @@ export interface SetupClaudeStatuslineResult {
 const SCOPE_LABEL: Record<SettingsScope, string> = {
   user: 'User',
   workspace: 'Workspace',
-  workspaceFolder: 'Workspace Folder',
 };
 
 // The exact JSON the user pastes. Windows paths are written with forward
@@ -104,8 +111,13 @@ function report(input: {
     ...(remote !== undefined
       ? [
           '',
-          `> This is a **${remote}** window, so the setting was written to the scope this`,
-          '> extension host actually reads. Local User settings would not affect it.',
+          `> **This is a ${remote} window.** The path was written to your **User**`,
+          '> settings, which is correct for a machine-specific path. If the Claude card',
+          '> stays empty after a session reports usage, this extension host may be',
+          '> reading Remote or Workspace settings instead: open Settings, search',
+          '> `statuslineSnapshotPath`, and set the same value on the tab this window',
+          '> uses. TokenGauge does not write your project settings, so nothing was',
+          "> added to this repository's `.vscode/settings.json`.",
         ]
       : []),
     '',

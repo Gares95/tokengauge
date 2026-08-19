@@ -40,6 +40,13 @@ WSL, so the writer must run with WSL's own Node.
 
 ## 1. Create the writer (inside WSL)
 
+> **Fastest route:** run **TokenGauge: Set Up Claude statusLine** from the VS Code
+> Command Palette (`Ctrl+Shift+P`, or `Cmd+Shift+P` on macOS) instead. It writes the same writer file, validates it, and sets
+> the snapshot path in the scope this window reads, leaving you only the
+> `statusLine` line to add to your own Claude settings. Run it from a VS Code
+> window attached to WSL, so the file lands on that side. The steps below are the
+> manual equivalent.
+
 Use the Bash-like writer block in the README's **Claude Code setup** section
 (the `#### WSL, Linux, macOS, or Git Bash` block) from a WSL terminal. It
 creates `~/.tokengauge/claude/claude-statusline-writer.mjs`, validates it with

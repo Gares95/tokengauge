@@ -86,6 +86,16 @@ suite('Set Up Claude statusLine: the hard constraint', () => {
     );
   });
 
+  // .vscode/settings.json is a shared, committable project file. Writing it is the
+  // same class of overreach as writing ~/.claude/settings.json.
+  test('never writes Workspace scope, in any window, remote or local', async () => {
+    for (const remote of [undefined, 'wsl', 'ssh-remote', 'dev-container']) {
+      const { deps, rec } = harness({ remoteName: () => remote });
+      await runSetupClaudeStatusline(deps);
+      assert.equal(rec.settings[0]?.scope, 'user', `remote=${String(remote)}`);
+    }
+  });
+
   test('the only setting written is the snapshot path, never a privacy toggle', async () => {
     const { deps, rec } = harness();
     await runSetupClaudeStatusline(deps);
@@ -132,22 +142,27 @@ suite('Set Up Claude statusLine: what it does for the user', () => {
     assert.match(json, /C:\/Users\/dev\/w\.mjs/);
   });
 
-  // The scope trap: in a Remote/WSL/Dev Container window the extension host does
-  // not read local User settings, which is the most common reason a
-  // correct-looking setup shows nothing.
-  test('writes the setting to the scope the extension host actually reads', async () => {
-    const { deps, rec } = harness({ targetScope: () => 'workspace', remoteName: () => 'wsl' });
-    await runSetupClaudeStatusline(deps);
-    assert.equal(rec.settings[0]?.scope, 'workspace');
-    assert.match(rec.reports.join('\n'), /Workspace/);
-    assert.match(rec.reports.join('\n'), /wsl/, 'names the remote so the choice is explicable');
-  });
-
-  test('a local window uses User scope and says nothing about remotes', async () => {
+  test('a local window writes User scope and says nothing about remotes', async () => {
     const { deps, rec } = harness();
     await runSetupClaudeStatusline(deps);
     assert.equal(rec.settings[0]?.scope, 'user');
-    assert.ok(!/remote/i.test(rec.reports.join('\n')));
+    assert.ok(!/wsl|remote/i.test(rec.reports.join('\n')));
+  });
+
+  // REGRESSION: the first version chose Workspace scope in a remote window, which
+  // VS Code stores in the project's .vscode/settings.json. That file is shared and
+  // may be version-controlled, and the value is a machine-specific absolute path
+  // that is wrong on every other machine. A remote window must still write User
+  // scope and EXPLAIN itself rather than writing a project file.
+  test('a remote window still writes User scope, never the project settings', async () => {
+    const { deps, rec } = harness({ remoteName: () => 'wsl' });
+    await runSetupClaudeStatusline(deps);
+    assert.equal(rec.settings[0]?.scope, 'user', 'never Workspace scope');
+    const report = rec.reports.join('\n');
+    assert.match(report, /wsl/i, 'names the remote so the choice is explicable');
+    assert.match(report, /User/, 'states which scope was written');
+    assert.match(report, /Remote or Workspace settings/, 'tells the user what to check');
+    assert.match(report, /does not write your project settings/i, 'states the boundary');
   });
 });
 

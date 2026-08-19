@@ -3,6 +3,11 @@ dist/
 out/
 coverage/
 .vscode-test/
+# Personal workspace settings. TokenGauge's setup command writes the snapshot
+# path to USER settings, never here, but a hand-set workspace override would
+# carry a machine-specific absolute path that is wrong on every other machine.
+# launch.json and tasks.json stay tracked: those are shared dev config.
+.vscode/settings.json
 *.vsix
 *.vsixmanifest
 *.tgz
