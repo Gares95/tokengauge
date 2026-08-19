@@ -98,7 +98,7 @@
             "scope": "window",
             "order": 1,
             "title": "Statusline Snapshot Path",
-            "markdownDescription": "Cockpit (native): Claude statusLine snapshot path: the JSON file, or a per-session directory (recommended for multiple sessions), your own statusLine writer produces. Set Claude Code `statusLine.command` to the writer command, but set this TokenGauge value to the snapshot output, not the writer file. TokenGauge reads only this exact path (no `.claude` scanning, no log parsing). In WSL/Remote/Dev Container windows, configure this in Remote or Workspace settings for the extension host; local User settings may not affect that window. Step-by-step setup: see the README \"Claude Code setup\" section."
+            "markdownDescription": "Cockpit (native): Claude statusLine snapshot path: the JSON file, or a per-session directory (recommended for multiple sessions), your own statusLine writer produces. Set Claude Code `statusLine.command` to the writer command, but set this TokenGauge value to the snapshot output, not the writer file. TokenGauge reads only this exact path (no `.claude` scanning, no log parsing). In WSL/Remote/Dev Container windows, set this from inside that window: it reads that remote's own User, Remote, or Workspace settings, so your local desktop User settings may not affect it. Running TokenGauge: Set Up Claude statusLine from that window sets it in the right place for you. Step-by-step setup: see the README \"Claude Code setup\" section."
           },
           "tokenGauge.display.cards.claude.visible": {
             "type": "boolean",
@@ -202,8 +202,9 @@
     "package:vsix": "npm run clean && npm run build:production && node tools/package-vsix.mjs",
     "audit:vsix": "node tools/audit-vsix-cli.mjs",
     "verify:vsix": "npm run package:vsix && npm run audit:vsix",
-    "check": "npm run format:check && npm run lint && npm run lint:types && npm run typecheck && npm run check:pinning && node tools/check-privacy-fast.mjs && npm run check:secretstorage-boundary && npm run check:no-network-default && node tools/check-no-network-default.test.mjs && npm run check:no-stray-ui-surfaces && npm run check:no-log-ingestion && npm run check:no-old-usage-model && npm run check:no-synthetic-estimation && npm run check:source-truth && node tools/check-source-truth.test.mjs && npm run check:no-threshold-notifications && npm run check:webview-csp && npm run check:release-docs && node tools/check-release-docs.test.mjs && npm run check:release-workflow && node tools/check-release-workflow.test.mjs && node tools/check-vsix-reproducibility.test.mjs && npm run test:audit-vsix && npm run test:privacy-fast && npm test && npm run check:activation-compat && npm run check:performance",
-    "build:writer-asset": "node tools/build-writer-asset.mjs"
+    "check": "npm run format:check && npm run lint && npm run lint:types && npm run typecheck && npm run check:pinning && node tools/check-privacy-fast.mjs && npm run check:secretstorage-boundary && npm run check:no-network-default && node tools/check-no-network-default.test.mjs && npm run check:no-stray-ui-surfaces && npm run check:no-log-ingestion && npm run check:no-old-usage-model && npm run check:no-synthetic-estimation && npm run check:source-truth && node tools/check-source-truth.test.mjs && npm run check:no-threshold-notifications && npm run check:webview-csp && npm run check:doc-cross-claims && npm run check:release-docs && node tools/check-release-docs.test.mjs && npm run check:release-workflow && node tools/check-release-workflow.test.mjs && node tools/check-vsix-reproducibility.test.mjs && npm run test:audit-vsix && npm run test:privacy-fast && npm test && npm run check:activation-compat && npm run check:performance",
+    "build:writer-asset": "node tools/build-writer-asset.mjs",
+    "check:doc-cross-claims": "node tools/check-doc-cross-claims.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.16",

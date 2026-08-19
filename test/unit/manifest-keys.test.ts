@@ -74,15 +74,27 @@ suite('Manifest <-> TOKENGAUGE_KEYS parity (CONF-01)', () => {
       /not the writer file/i,
       'statuslineSnapshotPath copy must not let users point TokenGauge at the writer script',
     );
+    // The INTENT is pinned, not one phrasing: the copy must name the remote
+    // settings scopes and warn that the local desktop settings may not apply.
+    // Over-pinning the exact words blocked a clarification that "User settings"
+    // names a different file in a remote window than on the desktop, which is
+    // what sent users to edit the wrong machine's settings.
     assert.match(
       snapPathCopy,
-      /Remote or Workspace settings/i,
-      'statuslineSnapshotPath copy must mention remote/workspace settings scope',
+      /Remote,? (?:or )?Workspace settings|Remote or Workspace settings/i,
+      'statuslineSnapshotPath copy must name the remote/workspace settings scopes',
     );
     assert.match(
       snapPathCopy,
-      /local User settings may not affect/i,
-      'statuslineSnapshotPath copy must warn that local User settings may not affect remote windows',
+      /local[^.]*settings may not affect/i,
+      'statuslineSnapshotPath copy must warn that local settings may not affect remote windows',
+    );
+    // The disambiguation itself: a bare "User settings" warning is what caused
+    // the confusion, so the copy must qualify WHICH machine's settings it means.
+    assert.match(
+      snapPathCopy,
+      /local desktop|that remote's own/i,
+      "statuslineSnapshotPath copy must say which machine's settings it means",
     );
   });
 

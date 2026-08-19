@@ -40,8 +40,9 @@ confirm where TokenGauge is actually running. When it runs on the remote side:
 - TokenGauge settings must be configured in the scope where the extension is
   running. In WSL, Remote-SSH, and Dev Container windows, use Remote settings or
   Workspace settings visible to that remote extension host. Local Windows/macOS
-  User settings can be different or wrong and may not affect the remote
-  TokenGauge instance. Local User settings are still the right place for local,
+  desktop User settings can be different or wrong and may not affect the remote
+  TokenGauge instance, because a remote window reads that remote's own settings
+  files. Local desktop User settings are still the right place for local,
   non-remote windows; this scope split is normal VS Code behavior.
 - Use **Preferences: Open Remote Settings (JSON)**, or the **Remote [WSL: ...]**
   tab in Settings when it is visible, to edit remote settings. Keep local User

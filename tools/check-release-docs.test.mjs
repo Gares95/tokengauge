@@ -28,7 +28,7 @@ function cleanDocs() {
       'will not guess a usage window. Run claude auth status and claude doctor. ' +
       'Do not paste raw auth output. The card updates as soon as Claude Code reports.\n',
     'docs/remote-setups.md':
-      '# Remote\n\nUse Remote settings rather than Local User settings. ' +
+      '# Remote\n\nUse Remote settings rather than Local desktop User settings. ' +
       'Same-host setup is preferred. Cross-host paths are not the recommended setup.\n',
     'docs/multiple-sessions.md': '# Multiple sessions\n\naccuracy is preserved per account.\n',
     'README.md':

@@ -301,9 +301,11 @@ Open the Command Palette with `Ctrl+Shift+P` (`Cmd+Shift+P` on macOS) and run
   here-doc to get wrong.
 - Validates it with `node --check` and tells you if that fails.
 - Sets `tokenGauge.claude.statuslineSnapshotPath` to the matching snapshot path,
-  in the settings scope this window actually reads. In WSL, Remote-SSH, and Dev
-  Container windows that is not your local User settings, which is the single most
-  common reason a correct-looking setup shows nothing.
+  in the User settings this window reads. Note that "User settings" names a
+  different file depending on where the extension host runs: in a WSL, Remote-SSH,
+  or Dev Container window it is that remote's own User settings, not the local
+  desktop ones. The command writes the remote file, which is why the value it sets
+  is not the value you see in a local settings tab.
 - Opens a short report containing the exact `statusLine` line to add.
 
 It then leaves you one step, on purpose:

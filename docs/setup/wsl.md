@@ -94,12 +94,19 @@ Static fallback: [statusLine settings still (PNG)](../images/setup/wsl/wsl-claud
 
 ## 3. Point TokenGauge at the snapshot (Remote settings)
 
-In the Remote WSL window, set `tokenGauge.claude.statuslineSnapshotPath` to
-`/home/YOUR_USER/.tokengauge/claude/statusline-snapshot.json` using **Remote
-settings** or Workspace settings — the scope the WSL extension host actually
-reads. Local Windows User settings may not affect the remote TokenGauge
-instance; this scope split is normal VS Code behavior (use
-**Preferences: Open Remote Settings (JSON)**).
+**TokenGauge: Set Up Claude statusLine** sets this for you when you run it from
+the Remote WSL window; skip to the next section if you did.
+
+To set it by hand, set `tokenGauge.claude.statuslineSnapshotPath` to
+`/home/YOUR_USER/.tokengauge/claude/statusline-snapshot.json` from **inside the
+Remote WSL window**, in that window's own User settings or in Remote/Workspace
+settings.
+
+The distinction that matters is *which machine's* settings file you are editing,
+not which tab is called "User". A Remote WSL window reads WSL-side settings, so
+the **local Windows** User settings you see on the desktop may not affect it;
+this scope split is normal VS Code behavior (use **Preferences: Open Remote
+Settings (JSON)**).
 
 <details>
 <summary>Animation: setting the snapshot path in Remote settings (illustrative)</summary>
