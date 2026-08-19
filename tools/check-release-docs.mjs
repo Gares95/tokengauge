@@ -113,6 +113,15 @@ function sectionBetween(file, startPhrase, endPhrase) {
   return end === -1 ? content.slice(afterStart) : content.slice(afterStart, end);
 }
 
+// The writer-body document is read early: the writer-setup checks below run
+// before the reference-doc loop that would otherwise load it.
+{
+  const writerDoc = read('docs/claude-statusline-writer.md');
+  if (writerDoc !== null) {
+    docs['docs/claude-statusline-writer.md'] = writerDoc;
+  }
+}
+
 // missing-changelog-version: CHANGELOG must name the current package version.
 if (docs['CHANGELOG.md'] !== undefined) {
   let version = null;
@@ -190,19 +199,8 @@ requirePhrases(
     'TokenGauge reads only that exact directory, non-recursively',
     'up to 32 hash-named snapshot files',
     'never deletes snapshot files',
-    'TOKENGAUGE_STATUSLINE',
     'claude-statusline-writer.mjs',
-    '#### WSL, Linux, macOS, or Git Bash',
-    'Use this block in Bash-like shells only. It is not PowerShell syntax.',
-    'node --version',
-    'TokenGauge does not install Node or Claude Code',
-    '#### PowerShell',
-    'Set-Content -Path $writer -Encoding utf8',
     'node --check',
-    'node --check $writer',
-    '(Resolve-Path $writer).Path',
-    'realpath ~/.tokengauge/claude/claude-statusline-writer.mjs',
-    'No `jq`, `sha256sum`, `chmod`, or `sed` step is needed',
     'statusLine.command',
     '--file /home/YOUR_USER/.tokengauge/claude/statusline-snapshot.json',
     '--dir /home/YOUR_USER/.tokengauge/claude/statusline-snapshots',
@@ -214,8 +212,6 @@ requirePhrases(
     '`Resolve-Path`',
     'Merge it into the existing JSON object; do not',
     'Configure snapshot path',
-    'Claude Code must already run in the same environment',
-    'fix Claude Code first',
     'tokenGauge.providers.codex.nativeStatusProbe',
     'tokenGauge.display.cards.claude.visible',
     'tokenGauge.display.cards.codex.visible',
@@ -236,10 +232,15 @@ forbidPhrases(
 );
 
 {
+  // The writer body lives in docs/claude-statusline-writer.md, not the README:
+  // the README is the packaged Marketplace listing and the body is ~260 lines of
+  // script most readers never need, now that the setup command writes it. There
+  // is still exactly ONE body, still byte-pinned to canonical by
+  // ClaudeStatuslineWriter.test.ts.
   const bashBlock = sectionBetween(
-    'README.md',
-    '#### WSL, Linux, macOS, or Git Bash',
-    '#### PowerShell',
+    'docs/claude-statusline-writer.md',
+    '## WSL, Linux, macOS, or Git Bash',
+    '## PowerShell',
   );
   if (
     !bashBlock.includes(
@@ -250,7 +251,7 @@ forbidPhrases(
     !bashBlock.includes('function outputPathFor(mode, target, snapshot)') ||
     !bashBlock.includes('function statusLine(snapshot)')
   ) {
-    fail('missing-bash-writer-setup', 'README.md');
+    fail('missing-bash-writer-setup', 'docs/claude-statusline-writer.md');
   }
 
   // The writer body appears ONCE, in the Bash block above. The PowerShell section
@@ -259,8 +260,8 @@ forbidPhrases(
   // absolute path the user needs for statusLine.command) instead of a second copy.
   // Requiring a body here is what produced two copies of the same 236 lines.
   const powerShellBlock = sectionBetween(
-    'README.md',
-    '#### PowerShell',
+    'docs/claude-statusline-writer.md',
+    '## PowerShell',
     'If you intentionally keep a custom shell writer instead',
   );
   if (
@@ -270,7 +271,7 @@ forbidPhrases(
     !powerShellBlock.includes('node --check $writer') ||
     !powerShellBlock.includes('(Resolve-Path $writer).Path')
   ) {
-    fail('missing-powershell-writer-setup', 'README.md');
+    fail('missing-powershell-writer-setup', 'docs/claude-statusline-writer.md');
   }
   // The PowerShell section must ROUTE to the single writer body rather than
   // reintroducing one: a second copy here is exactly the drift this removes.
@@ -471,6 +472,23 @@ if (docs['docs/setup/wsl.md'] !== undefined) {
 // and stay discoverable; these rules pin it to the document that now carries it,
 // so the split cannot quietly drop it.
 const REFERENCE_DOCS = {
+  // the writer body and both platform recipes, split out of the packaged README
+  'docs/claude-statusline-writer.md': [
+    'TOKENGAUGE_STATUSLINE',
+    '## WSL, Linux, macOS, or Git Bash',
+    'Use this block in Bash-like shells only. It is not PowerShell syntax.',
+    'node --version',
+    'TokenGauge does not install Node or Claude Code',
+    '## PowerShell',
+    'Set-Content -Path $writer -Encoding utf8',
+    'node --check $writer',
+    '(Resolve-Path $writer).Path',
+    'realpath ~/.tokengauge/claude/claude-statusline-writer.mjs',
+    'No `jq`, `sha256sum`, `chmod`, or `sed` step is needed',
+    'Claude Code must already run in the same environment',
+    'fix Claude Code first',
+  ],
+
   'docs/troubleshooting.md': [
     'strict schema rejects leaky or malformed snapshots',
     'not the writer script',
@@ -506,7 +524,12 @@ for (const [file, phrases] of Object.entries(REFERENCE_DOCS)) {
 // the README must still ROUTE readers to each split document
 requirePhrases(
   'README.md',
-  ['docs/troubleshooting.md', 'docs/remote-setups.md', 'docs/multiple-sessions.md'],
+  [
+    'docs/troubleshooting.md',
+    'docs/remote-setups.md',
+    'docs/multiple-sessions.md',
+    'docs/claude-statusline-writer.md',
+  ],
   'missing-reference-links',
 );
 
@@ -527,6 +550,7 @@ const APPROVED_RELATIVE_TARGETS = new Set([
   'THIRD_PARTY_NOTICES.md',
   'docs/adr/ADR-004-native-only-privacy-model.md',
   // reference material split out of the packaged README
+  'docs/claude-statusline-writer.md',
   'docs/troubleshooting.md',
   'docs/remote-setups.md',
   'docs/multiple-sessions.md',

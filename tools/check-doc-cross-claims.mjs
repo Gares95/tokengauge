@@ -44,15 +44,15 @@ const CLAIMS = [
     // Anything asserting a block is the source of the writer must name the block
     // that actually contains it.
     claimant: 'docs/setup/windows.md',
-    mustNameBlock: '#### WSL, Linux, macOS, or Git Bash',
-    inFile: 'README.md',
+    mustNameBlock: '## WSL, Linux, macOS, or Git Bash',
+    inFile: 'docs/claude-statusline-writer.md',
     reason: 'the guide points at the block said to hold the writer body',
   },
   {
     rule: 'writer-block-claim',
     claimant: 'docs/setup/wsl.md',
-    mustNameBlock: '#### WSL, Linux, macOS, or Git Bash',
-    inFile: 'README.md',
+    mustNameBlock: '## WSL, Linux, macOS, or Git Bash',
+    inFile: 'docs/claude-statusline-writer.md',
     reason: 'the guide points at the block said to hold the writer body',
   },
 ];
@@ -76,16 +76,16 @@ for (const claim of CLAIMS) {
 
 // A guide must not name a block as the writer source when that block holds no
 // writer. This is the exact shape of the shipped bug.
-const README = read('README.md');
-if (README !== null) {
+const WRITER_DOC = read('docs/claude-statusline-writer.md');
+if (WRITER_DOC !== null) {
   for (const guide of ['docs/setup/windows.md', 'docs/setup/wsl.md']) {
     const content = read(guide);
     if (content === null) continue;
     for (const match of content.matchAll(/`(#{2,4} [^`]+)`/g)) {
       const named = match[1];
-      const body = blockBody(README, named);
+      const body = blockBody(WRITER_DOC, named);
       if (body === null) {
-        fail('named-block-missing', guide, `README has no ${named}`);
+        fail('named-block-missing', guide, `the writer doc has no ${named}`);
         continue;
       }
       // Scope the test to the SENTENCE containing the reference. A wider window

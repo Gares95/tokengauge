@@ -47,12 +47,12 @@ WSL, so the writer must run with WSL's own Node.
 > window attached to WSL, so the file lands on that side. The steps below are the
 > manual equivalent.
 
-Use the Bash-like writer block in the README's **Claude Code setup** section
-(the `#### WSL, Linux, macOS, or Git Bash` block) from a WSL terminal. It
-creates `~/.tokengauge/claude/claude-statusline-writer.mjs`, validates it with
-`node --check`, and prints the absolute path with `realpath`. That README
-block is the tested single source of the writer; this guide intentionally does
-not carry a second copy of the writer body.
+Use the `## WSL, Linux, macOS, or Git Bash` block in
+[The Claude statusLine writer](../claude-statusline-writer.md), run from a WSL
+terminal. It creates `~/.tokengauge/claude/claude-statusline-writer.mjs`,
+validates it with `node --check`, and prints the absolute path with `realpath`.
+That block is the tested source of the writer body; this guide intentionally does
+not carry a second copy of it.
 
 <details>
 <summary>Animation: creating and validating the writer inside WSL (illustrative)</summary>
