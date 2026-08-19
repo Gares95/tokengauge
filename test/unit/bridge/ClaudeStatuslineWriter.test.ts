@@ -2,6 +2,7 @@ import * as assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
+  existsSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -132,6 +133,27 @@ function assertReadmeCopiesMatch(readmeText: string): void {
 // contract. It must carry the account-level windows, name each window, omit an
 // unreported window rather than fabricate 0%, and stay identical across
 // concurrent sessions on one account.
+// The Set Up Claude statusLine command writes the writer from a copy shipped in
+// dist/. That copy is a BUILD ARTIFACT, not a maintained second body: if it ever
+// drifts from the canonical source, users would receive a different writer than
+// the README documents.
+suite('Claude statusLine writer: the shipped dist asset', () => {
+  const assetPath = path.join(repoRoot, 'dist', 'claude-statusline-writer.mjs');
+
+  test('the dist asset is byte-identical to the canonical writer', function () {
+    if (!existsSync(assetPath)) {
+      // `npm run build` produces it; a bare compile-tests run may not have.
+      this.skip();
+      return;
+    }
+    assert.equal(
+      readFileSync(assetPath, 'utf8'),
+      readFileSync(writerPath, 'utf8'),
+      'dist/claude-statusline-writer.mjs must match src/bridge/claude-statusline-writer.example.mjs',
+    );
+  });
+});
+
 suite('Claude statusLine canonical writer: status line output', () => {
   // Session-local values would make the line differ between concurrent sessions
   // and would imply the account-level percentages belong to one session.

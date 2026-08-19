@@ -214,15 +214,19 @@ a configured Claude statusLine snapshot and/or the explicit Codex probe opt-in.
 The local Claude `stats-cache.json` cache (per-model cost and model info) is
 read only when the Claude card is visible, as described under [Sources](#sources).
 
-1. After installing TokenGauge, run **TokenGauge: Open Cockpit** from the Command Palette.
+1. After installing TokenGauge, open the Command Palette (`Ctrl+Shift+P`, or
+   `Cmd+Shift+P` on macOS) and run **TokenGauge: Open Cockpit**.
 2. Run **TokenGauge: Configure Cockpit** and choose **Claude settings** or
    **Codex settings**. Configure Cockpit groups provider setup and card
    visibility together, opens filtered Settings pages, and never changes a value
    for you.
-3. For Claude Code, follow the **[Claude Code setup](#claude-code-setup)**
-   section below. In short: point `tokenGauge.claude.statuslineSnapshotPath` at
-   a per-session snapshot directory (recommended for multiple sessions), or at a
-   single snapshot file for one active statusLine writer.
+3. For Claude Code, run **TokenGauge: Set Up Claude statusLine**. It writes the
+   statusLine writer for you, checks it, points
+   `tokenGauge.claude.statuslineSnapshotPath` at the snapshot, and shows you the
+   one line to add to your own Claude settings. See
+   **[Claude Code setup](#claude-code-setup)** for that step and for the manual
+   route, including a per-session snapshot directory (recommended when you run
+   several Claude sessions) instead of a single snapshot file.
 4. For Codex, leave `tokenGauge.providers.codex.nativeStatusProbe` off unless
    you explicitly opt in. You can turn it on from Configure Cockpit or Settings;
    TokenGauge does not ask for API keys or provider secrets. When the probe is
@@ -287,6 +291,38 @@ The setup also buys more than parity:
   where you are working, not only in the VS Code sidebar. See
   [What your Claude status line will show](#what-your-claude-status-line-will-show).
 
+### Set it up with one command
+
+Open the Command Palette with `Ctrl+Shift+P` (`Cmd+Shift+P` on macOS) and run
+**TokenGauge: Set Up Claude statusLine**. It does the error-prone parts for you:
+
+- Writes the writer script to `~/.tokengauge/claude/claude-statusline-writer.mjs`,
+  byte-for-byte the same writer documented below, so there is no shell quoting or
+  here-doc to get wrong.
+- Validates it with `node --check` and tells you if that fails.
+- Sets `tokenGauge.claude.statuslineSnapshotPath` to the matching snapshot path,
+  in the settings scope this window actually reads. In WSL, Remote-SSH, and Dev
+  Container windows that is not your local User settings, which is the single most
+  common reason a correct-looking setup shows nothing.
+- Opens a short report containing the exact `statusLine` line to add.
+
+It then leaves you one step, on purpose:
+
+> TokenGauge does not edit `~/.claude/settings.json`. The command shows you the
+> `statusLine` entry; you add it yourself. See
+> [Why this needs setup](#why-this-needs-setup) for why that boundary exists, and
+> [Claude statusLine integration: safety and revert notes](#claude-statusline-integration-safety-and-revert-notes)
+> for how to undo it.
+
+**If you already have a status line you want to keep**, adding this entry replaces
+it. Keep a copy of `~/.claude/settings.json` first, and see
+[What your Claude status line will show](#what-your-claude-status-line-will-show)
+for a wrapper that runs the writer and then prints your own line as well.
+
+The rest of this section is the manual route. You do not need it if the command
+worked, but it documents exactly what the command wrote, which is worth reading
+before you run a script from an extension on your machine.
+
 ### How it fits together
 
 There are **two separate paths**, and it helps to keep them straight:
@@ -325,6 +361,10 @@ file, `~/.claude/stats-cache.json` (Claude Code's own usage cache, read for
 per-model cost and model info; see [Sources](#sources)).
 
 ### 1. Create the writer script
+
+> **TokenGauge: Set Up Claude statusLine** does this step for you, and writes the
+> same file. Follow the steps below if you would rather create it yourself, need a
+> custom path, or want to read the writer before running it.
 
 Claude Code must already run in the same environment where this writer runs. If
 `claude` does not start in that environment, fix Claude Code first, then return
@@ -871,9 +911,14 @@ TokenGauge setting changes.
 
 ## Commands
 
-All commands are under the **TokenGauge** category in the Command Palette. The **cockpit**
+All commands are under the **TokenGauge** category in the Command Palette
+(`Ctrl+Shift+P`, or `Cmd+Shift+P` on macOS). The **cockpit**
 commands are the primary surface; provider and local-data management commands are
 **advanced/optional**.
+
+**Setup:**
+
+- **TokenGauge: Set Up Claude statusLine**: write the Claude statusLine writer to `~/.tokengauge/claude/`, validate it with `node --check`, set `tokenGauge.claude.statuslineSnapshotPath` in the scope this window reads, and show the exact `statusLine` line to add to `~/.claude/settings.json`. It does **not** edit your Claude config and does not change any privacy setting: the snapshot path is the only value it writes.
 
 **Cockpit (primary):**
 

@@ -38,6 +38,11 @@
   "contributes": {
     "commands": [
       {
+        "command": "tokenGauge.setupClaudeStatusline",
+        "title": "Set Up Claude statusLine",
+        "category": "TokenGauge"
+      },
+      {
         "command": "tokenGauge.openPrivacyReport",
         "title": "Privacy & Data Report",
         "category": "TokenGauge"
@@ -84,7 +89,7 @@
     },
     "configuration": [
       {
-        "title": "TokenGauge › Claude",
+        "title": "TokenGauge \u203a Claude",
         "order": 1,
         "properties": {
           "tokenGauge.claude.statuslineSnapshotPath": {
@@ -106,7 +111,7 @@
         }
       },
       {
-        "title": "TokenGauge › Codex",
+        "title": "TokenGauge \u203a Codex",
         "order": 2,
         "properties": {
           "tokenGauge.providers.codex.nativeStatusProbe": {
@@ -128,7 +133,7 @@
         }
       },
       {
-        "title": "TokenGauge › Display",
+        "title": "TokenGauge \u203a Display",
         "order": 3,
         "properties": {
           "tokenGauge.display.showTechnicalDetails": {
@@ -142,7 +147,7 @@
         }
       },
       {
-        "title": "TokenGauge › Advanced / Polling",
+        "title": "TokenGauge \u203a Advanced / Polling",
         "order": 4,
         "properties": {
           "tokenGauge.pollIntervalSeconds": {
@@ -174,9 +179,9 @@
     "compile-tests": "tsc -p tsconfig.test.json",
     "pretest": "npm run compile-tests && npm run build",
     "clean": "node -e \"const fs=require('node:fs'); for (const d of ['dist','out']) { fs.rmSync(d, { recursive: true, force: true }); } for (const f of fs.readdirSync('.')) { if (f.endsWith('.vsix')) fs.unlinkSync(f); }\"",
-    "build": "node esbuild.config.mjs && npm run build:webview",
+    "build": "node esbuild.config.mjs && npm run build:webview && npm run build:writer-asset",
     "build:webview": "node tools/build-webview.mjs",
-    "build:production": "node tools/build-production.mjs && npm run build:webview",
+    "build:production": "node tools/build-production.mjs && npm run build:webview && npm run build:writer-asset",
     "watch": "node esbuild.config.mjs --watch",
     "test:unit": "npm run check:stale-compiled-tests && vscode-test --label unit",
     "test:integration": "npm run check:stale-compiled-tests && vscode-test --label integration",
@@ -197,7 +202,8 @@
     "package:vsix": "npm run clean && npm run build:production && node tools/package-vsix.mjs",
     "audit:vsix": "node tools/audit-vsix-cli.mjs",
     "verify:vsix": "npm run package:vsix && npm run audit:vsix",
-    "check": "npm run format:check && npm run lint && npm run lint:types && npm run typecheck && npm run check:pinning && node tools/check-privacy-fast.mjs && npm run check:secretstorage-boundary && npm run check:no-network-default && node tools/check-no-network-default.test.mjs && npm run check:no-stray-ui-surfaces && npm run check:no-log-ingestion && npm run check:no-old-usage-model && npm run check:no-synthetic-estimation && npm run check:source-truth && node tools/check-source-truth.test.mjs && npm run check:no-threshold-notifications && npm run check:webview-csp && npm run check:release-docs && node tools/check-release-docs.test.mjs && npm run check:release-workflow && node tools/check-release-workflow.test.mjs && node tools/check-vsix-reproducibility.test.mjs && npm run test:audit-vsix && npm run test:privacy-fast && npm test && npm run check:activation-compat && npm run check:performance"
+    "check": "npm run format:check && npm run lint && npm run lint:types && npm run typecheck && npm run check:pinning && node tools/check-privacy-fast.mjs && npm run check:secretstorage-boundary && npm run check:no-network-default && node tools/check-no-network-default.test.mjs && npm run check:no-stray-ui-surfaces && npm run check:no-log-ingestion && npm run check:no-old-usage-model && npm run check:no-synthetic-estimation && npm run check:source-truth && node tools/check-source-truth.test.mjs && npm run check:no-threshold-notifications && npm run check:webview-csp && npm run check:release-docs && node tools/check-release-docs.test.mjs && npm run check:release-workflow && node tools/check-release-workflow.test.mjs && node tools/check-vsix-reproducibility.test.mjs && npm run test:audit-vsix && npm run test:privacy-fast && npm test && npm run check:activation-compat && npm run check:performance",
+    "build:writer-asset": "node tools/build-writer-asset.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.16",

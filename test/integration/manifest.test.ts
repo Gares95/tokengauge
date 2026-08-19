@@ -60,6 +60,10 @@ const PRIMARY_COMMANDS = [
   'tokenGauge.refreshNativeStatus',
   'tokenGauge.configureCockpit',
   'tokenGauge.cockpitDiagnostics',
+  // The one-command Claude setup. It writes the writer and our snapshot-path
+  // setting, then shows the user the line to paste; it never writes
+  // ~/.claude/settings.json.
+  'tokenGauge.setupClaudeStatusline',
 ] as const;
 const CONFIG_COMMANDS = ['tokenGauge.openPrivacyReport'] as const;
 
@@ -488,6 +492,7 @@ suite('manifest — palette hygiene + first-release default palette', () => {
       'tokenGauge.configureCockpit',
       'tokenGauge.cockpitDiagnostics',
       'tokenGauge.openPrivacyReport',
+      'tokenGauge.setupClaudeStatusline',
     ]) {
       const entry = palette.find((m) => m.command === id);
       // visible-by-default = either no commandPalette entry at all, or one without a

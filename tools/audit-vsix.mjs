@@ -42,7 +42,7 @@ const ALLOWED_TOP_LEVEL = [
   'extension.vsixmanifest',
   '[content_types].xml',
 ];
-const EXPECTED_ENTRY_COUNT = 12;
+const EXPECTED_ENTRY_COUNT = 13;
 const REQUIRED_ENTRIES = [
   {
     name: 'package-json',
@@ -73,6 +73,13 @@ const REQUIRED_ENTRIES = [
     name: 'extension-bundle',
     pathLabel: 'extension/dist/extension.js',
     test: (entryPathLC) => entryPathLC === 'extension/dist/extension.js',
+  },
+  // The Set Up Claude statusLine command writes this to the user's machine, so a
+  // VSIX without it would ship a setup command that cannot work.
+  {
+    name: 'statusline-writer-asset',
+    pathLabel: 'extension/dist/claude-statusline-writer.mjs',
+    test: (entryPathLC) => entryPathLC === 'extension/dist/claude-statusline-writer.mjs',
   },
   {
     name: 'cockpit-bundle',
