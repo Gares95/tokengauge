@@ -32,12 +32,17 @@ script. The writer does not hard-code an output path; pass either `--file` for a
 single snapshot file or `--dir` for one snapshot per Claude session.
 
 The script keeps **only** the safe, allowlisted fields (5h/weekly percentages
-and reset times, model id, optional cost and context, plus a capture timestamp
+and reset times, model id, optional cost and context, plus the writer timestamp
 and **hashed** session/workspace identifiers), never raw paths, raw session ids,
 prompts, or transcripts. The hashed identifiers let TokenGauge tell two
 sessions apart safely; without them the multiple-writers warning described below
 cannot appear. It uses Node's built-in JSON parser and SHA-256 hashing, so
 no `jq`, `sha256sum`, `chmod`, or `sed` step is needed.
+
+The timestamp records when the writer sanitized and wrote the snapshot. It does
+not prove that the provider limits changed at that instant. Do not enable Claude
+Code `statusLine.refreshInterval` only to make TokenGauge appear fresher unless
+the snapshot schema can distinguish source capture time from writer time.
 
 ## WSL, Linux, macOS, or Git Bash
 

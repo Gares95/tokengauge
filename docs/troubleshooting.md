@@ -42,6 +42,9 @@ returns nothing, and the Claude and Codex checks worth running first.
   Code health/auth locally with `claude auth status` and `claude doctor`.
   Do not paste raw auth output, email addresses, organization or account ids,
   raw snapshots, or raw paths into public issues. TokenGauge shows a gauge as soon as Claude Code reports the 5h or weekly fields.
+- Do not enable Claude Code `statusLine.refreshInterval` only to make the card
+  look fresher. The writer timestamp is not proof that the provider limits
+  changed; TokenGauge waits for Claude Code to report a fresh limit sample.
 - Sessions run through the Claude Code VS Code extension's graphical panel do
   not run statusLine commands. Start a Claude Code CLI session in a terminal so
   the writer runs.

@@ -35,7 +35,10 @@ function cleanDocs() {
       '# The Claude statusLine writer\n\n' +
       'Claude Code must already run in the same environment; fix Claude Code first. ' +
       'Run node --version first. TokenGauge does not install Node or Claude Code. ' +
-      'No `jq`, `sha256sum`, `chmod`, or `sed` step is needed.\n\n' +
+      'No `jq`, `sha256sum`, `chmod`, or `sed` step is needed. ' +
+      'The timestamp records when the writer sanitized and wrote the snapshot. ' +
+      'It does not prove that the provider limits changed. ' +
+      'Do not enable Claude Code `statusLine.refreshInterval` only to make TokenGauge appear fresher unless the snapshot schema can distinguish source capture time from writer time.\n\n' +
       '## WSL, Linux, macOS, or Git Bash\n' +
       'Use this block in Bash-like shells only. It is not PowerShell syntax. ' +
       "mkdir -p ~/.tokengauge/claude\ncat > ~/.tokengauge/claude/claude-statusline-writer.mjs <<'TOKENGAUGE_STATUSLINE'\n" +
@@ -48,6 +51,11 @@ function cleanDocs() {
       'node --check $writer\n(Resolve-Path $writer).Path\n' +
       'If you intentionally keep a custom shell writer instead.\n',
     'docs/multiple-sessions.md': '# Multiple sessions\n\naccuracy is preserved per account.\n',
+    'docs/adr/ADR-004-native-only-privacy-model.md':
+      '# ADR-004\n\nA conversation log happens to contain provider-reported status fields. ' +
+      'That is not the same thing as a bounded native status surface. ' +
+      'It can be stale relative to the current account state. ' +
+      'TokenGauge does not mine conversation logs even for fields that look provider-authored.\n',
     'README.md':
       '# TokenGauge\n\nSee docs/troubleshooting.md, docs/remote-setups.md, docs/multiple-sessions.md and docs/claude-statusline-writer.md. ' +
       'GitHub Release first distribution. Native multi-agent gauge cockpit for Codex and Claude. ' +
@@ -74,6 +82,8 @@ function cleanDocs() {
       'If the snapshot file exists but the Claude card still shows no gauge, check statusline_snapshot_missing_rate_limits. ' +
       'That means TokenGauge read the snapshot, but Claude did not report limit fields. This is not a path problem. TokenGauge will not guess a usage window. ' +
       'Run claude auth status and claude doctor locally. Do not paste raw auth output in public issues. TokenGauge shows a gauge as soon as Claude Code reports fields. ' +
+      'The writer timestamp records when the sanitized snapshot was written, not proof that the provider limits changed. ' +
+      'Do not enable Claude Code `statusLine.refreshInterval` just to make TokenGauge look fresher unless the snapshot schema can distinguish source capture time from writer time. ' +
       'Use the absolute writer path printed by `realpath` or `Resolve-Path`. Merge it into the existing JSON object; do not delete unrelated settings. ' +
       'node C:/Users/YOUR_USER/.tokengauge/claude/claude-statusline-writer.mjs. ' +
       '--file C:/Users/YOUR_USER/.tokengauge/claude/statusline-snapshot.json. ' +
@@ -692,6 +702,51 @@ runFixture(
   },
 );
 
+runFixture(
+  'missing-native-log-boundary-rationale',
+  (docs) => {
+    docs['docs/adr/ADR-004-native-only-privacy-model.md'] = '# ADR-004\n\nNative-only.\n';
+  },
+  (result) => {
+    assert(result.status !== 0, 'ADR without log-boundary rationale should fail');
+    assert(
+      result.output.includes('missing-native-log-boundary-rationale'),
+      'expected missing-native-log-boundary-rationale rule',
+    );
+  },
+);
+
+runFixture(
+  'missing-statusline-freshness-guidance',
+  (docs) => {
+    docs['README.md'] = docs['README.md'].replace(
+      'Do not enable Claude Code `statusLine.refreshInterval` just to make TokenGauge look fresher unless the snapshot schema can distinguish source capture time from writer time. ',
+      '',
+    );
+  },
+  (result) => {
+    assert(result.status !== 0, 'README without statusLine freshness guidance should fail');
+    assert(
+      result.output.includes('missing-statusline-freshness-guidance'),
+      'expected missing-statusline-freshness-guidance rule',
+    );
+  },
+);
+
+runFixture(
+  'stale-statusline-freshness-guidance',
+  (docs) => {
+    docs['README.md'] += '\nThe snapshot file keeps being rewritten on a timer.\n';
+  },
+  (result) => {
+    assert(result.status !== 0, 'stale timer-based freshness wording should fail');
+    assert(
+      result.output.includes('stale-statusline-freshness-guidance'),
+      'expected stale-statusline-freshness-guidance rule',
+    );
+  },
+);
+
 // Test 2e4 (17-F01): the packaged-link closure gate. The clean fixture carries
 // an approved link with an existing target plus a valid anchor; each closure
 // violation fails with its rule name only.
@@ -766,7 +821,7 @@ runFixture(
 runFixture(
   'packaged-link-target-missing',
   (docs) => {
-    docs['CHANGELOG.md'] += '\nSee [ADR-004](docs/adr/ADR-004-native-only-privacy-model.md).\n';
+    docs['CHANGELOG.md'] += '\nSee [Windows setup](docs/setup/windows.md).\n';
   },
   (result) => {
     assert(result.status !== 0, 'approved link with missing target should fail');

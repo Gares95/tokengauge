@@ -237,6 +237,38 @@ forbidPhrases(
   'over-detailed-windows-setup',
 );
 
+requirePhrases(
+  'README.md',
+  [
+    'writer timestamp records when the sanitized',
+    'not proof that',
+    'the provider limits changed',
+    'Do not enable Claude Code',
+    '`statusLine.refreshInterval` just to make TokenGauge look fresher',
+    'distinguish source capture time from writer time',
+  ],
+  'missing-statusline-freshness-guidance',
+);
+
+requirePhrases(
+  'docs/claude-statusline-writer.md',
+  [
+    'timestamp records when the writer sanitized and wrote the snapshot',
+    'does',
+    'not prove that',
+    'the provider limits changed',
+    '`statusLine.refreshInterval` only to make TokenGauge appear fresher',
+    'distinguish source capture time from writer time',
+  ],
+  'missing-statusline-freshness-guidance',
+);
+
+forbidPhrases(
+  'README.md',
+  ['snapshot file keeps being rewritten on a timer'],
+  'stale-statusline-freshness-guidance',
+);
+
 {
   // The writer body lives in docs/claude-statusline-writer.md, not the README:
   // the README is the packaged Marketplace listing and the body is ~260 lines of
@@ -526,6 +558,28 @@ for (const [file, phrases] of Object.entries(REFERENCE_DOCS)) {
   }
   docs[file] = content;
   requirePhrases(file, phrases, 'missing-reference-guidance');
+}
+
+{
+  const file = 'docs/adr/ADR-004-native-only-privacy-model.md';
+  const content = read(file);
+  if (content === null) {
+    fail('missing-reference-doc', file);
+  } else {
+    docs[file] = content;
+    requirePhrases(
+      file,
+      [
+        'conversation log happens to contain',
+        'provider-reported status fields',
+        'not the same thing as a bounded native status surface',
+        'can be stale relative to the current account state',
+        'does not mine conversation',
+        'logs even for fields that look provider-authored',
+      ],
+      'missing-native-log-boundary-rationale',
+    );
+  }
 }
 // the README must still ROUTE readers to each split document
 requirePhrases(
