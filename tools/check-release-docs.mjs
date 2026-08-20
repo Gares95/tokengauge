@@ -219,7 +219,7 @@ requirePhrases(
     'tokenGauge.display.cards.codex.visible',
     'No cards visible',
     '`· Codex 42% weekly`',
-    'Codex reads `off` only when the probe is disabled',
+    'Codex shows `off` only when the probe is disabled',
   ],
   'missing-setup-guidance',
 );

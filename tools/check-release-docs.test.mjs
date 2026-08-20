@@ -85,7 +85,7 @@ function cleanDocs() {
       'Opt in to tokenGauge.providers.codex.nativeStatusProbe only when wanted and keep the Codex card visible for probes. ' +
       'Use tokenGauge.display.cards.claude.visible and tokenGauge.display.cards.codex.visible for card visibility. ' +
       'When both are hidden, the cockpit shows No cards visible. ' +
-      'The status bar may show `· Codex 42% weekly`. Codex reads `off` only when the probe is disabled. ' +
+      'The status bar may show `· Codex 42% weekly`. Codex shows `off` only when the probe is disabled. ' +
       'In snapshot directory mode there is no file watcher; directory mode is poll-only. ' +
       'vsce rewrites relative links to absolute blob/HEAD URLs; releases use merge or tag-pin delivery. ' +
       'See [PRIVACY.md](PRIVACY.md) and jump to [setup](#quick-start).\n',

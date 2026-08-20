@@ -330,7 +330,7 @@ before you run a script from an extension on your machine.
 
 There are **two separate paths**, and it helps to keep them straight:
 
-1. **Writer script path**: the shell script *Claude Code* runs.
+1. **Writer script path**: the Node writer script *Claude Code* runs.
 2. **Snapshot output path**: the JSON file (or directory) *TokenGauge* reads.
 
 They are not the same file. Claude Code runs the writer script; the writer script
@@ -626,7 +626,7 @@ commands are the primary surface; provider and local-data management commands ar
 means no native data has been posted yet. With data it reads like
 `TG: Claude 43% 5h`, with `(last known)` appended when the value is retained
 rather than live and a window-labelled Codex hint such as `· Codex 12% 5h` or
-`· Codex 42% weekly` appended when the Codex card has a value. Codex reads `off` only when the probe is disabled; pending or unavailable probes use different labels.
+`· Codex 42% weekly` appended when the Codex card has a value. Codex shows `off` only when the probe is disabled; pending or unavailable probes use different labels.
 The item takes the warning background when the Claude 5h window is at warning or
 critical risk. Clicking it always opens the cockpit.
 
