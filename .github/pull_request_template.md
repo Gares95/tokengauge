@@ -20,7 +20,9 @@ Run the project gates locally and confirm they pass:
 
 TokenGauge is privacy-first and honesty-first. Confirm:
 
-- [ ] No prompts, completions, source code, file contents, terminal output, tool arguments/results, secrets, tokens, cookies, transcripts, git remote URLs, or raw paths are read, stored, or logged.
+- [ ] No prompts, completions, source code, file contents, terminal output,
+      tool arguments/results, secrets, tokens, cookies, transcripts, git remote
+      URLs, or raw paths are read, stored, or logged.
 - [ ] No telemetry and no outbound network calls except user-configured endpoints.
 - [ ] Every user-facing metric keeps its accuracy label; nothing is presented as stronger than its source.
 - [ ] No secrets or credentials in code, tests, fixtures, or commit messages.
