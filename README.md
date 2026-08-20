@@ -712,12 +712,15 @@ In practice that means:
 - **Early in a session, fields can be missing.** Claude Code fills in its
   rate-limit fields after its first API response. Until then the card may show a
   waiting state even though the snapshot file is being rewritten.
-- **After a limit window resets, Claude Code needs a fresh response.** The
-  snapshot file keeps being rewritten on a timer, but its rate-limit contents
-  only change when Claude Code completes a new response. If the reported reset
-  time has already passed, TokenGauge shows **"Waiting for a fresh sample"**
-  rather than presenting the old window's number as current. A rewritten file
-  is not the same thing as fresh data.
+- **After a limit window resets, Claude Code needs a fresh response.**
+  TokenGauge treats a rewritten snapshot file as a new file read, not proof that
+  the provider limits changed. The writer timestamp records when the sanitized
+  snapshot was written; the rate-limit contents still change only when Claude
+  Code reports a new response. If the reported reset time has already passed,
+  TokenGauge shows **"Waiting for a fresh sample"** rather than presenting the
+  old window's number as current. Do not enable Claude Code
+  `statusLine.refreshInterval` just to make TokenGauge look fresher unless the
+  snapshot schema can distinguish source capture time from writer time.
 - **The sample can lag.** Between responses, the number you see is the last one
   Claude Code reported, and the card's freshness label says so.
 

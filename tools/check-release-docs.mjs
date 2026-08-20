@@ -237,6 +237,38 @@ forbidPhrases(
   'over-detailed-windows-setup',
 );
 
+requirePhrases(
+  'README.md',
+  [
+    'writer timestamp records when the sanitized',
+    'not proof that',
+    'the provider limits changed',
+    'Do not enable Claude Code',
+    '`statusLine.refreshInterval` just to make TokenGauge look fresher',
+    'distinguish source capture time from writer time',
+  ],
+  'missing-statusline-freshness-guidance',
+);
+
+requirePhrases(
+  'docs/claude-statusline-writer.md',
+  [
+    'timestamp records when the writer sanitized and wrote the snapshot',
+    'does',
+    'not prove that',
+    'the provider limits changed',
+    '`statusLine.refreshInterval` only to make TokenGauge appear fresher',
+    'distinguish source capture time from writer time',
+  ],
+  'missing-statusline-freshness-guidance',
+);
+
+forbidPhrases(
+  'README.md',
+  ['snapshot file keeps being rewritten on a timer'],
+  'stale-statusline-freshness-guidance',
+);
+
 {
   // The writer body lives in docs/claude-statusline-writer.md, not the README:
   // the README is the packaged Marketplace listing and the body is ~260 lines of
