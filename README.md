@@ -20,16 +20,27 @@ or transcripts.
 
 ### Why TokenGauge
 
-- **Honest by construction.** Every number is tracked with an accuracy label — current v1 emits `proxy_reported` (native-reported) or `unknown`; see [ACCURACY.md](ACCURACY.md) for the full declared taxonomy. Cards surface the label as plain-language provenance, and Cockpit Diagnostics exposes the raw labels. Missing cost reads `cost unknown`, never a believable `$0.00`.
-- **Native-first.** The cockpit reads current limit state from native agent surfaces. It does **not** need your conversation logs to work, and reads none by default.
-- **Privacy-first.** Local-only. No developer-controlled telemetry, no default outbound network calls, no prompts/completions/source/secrets ever read or stored.
+- **Honest by construction.** Every number is tracked with an accuracy label.
+  Current v1 emits `proxy_reported` (native-reported) or `unknown`; see
+  [ACCURACY.md](ACCURACY.md) for the full declared taxonomy. Cards surface the
+  label as plain-language provenance, and Cockpit Diagnostics exposes the raw
+  labels. Missing cost reads `cost unknown`, never a believable `$0.00`.
+- **Native-first.** The cockpit reads current limit state from native agent
+  surfaces. It does **not** need your conversation logs to work, and reads none
+  by default.
+- **Privacy-first.** Local-only. No developer-controlled telemetry, no default
+  outbound network calls, no prompts/completions/source/secrets ever read or
+  stored.
 - **No credentials, no network.** TokenGauge never reads your Claude or Codex
   credentials and makes no outbound network calls of its own. Every number comes
   from a surface your tools already expose locally, which is why the Claude card
   needs a short one-time setup. See
   [Why this needs setup](#why-this-needs-setup).
-- **Multi-agent.** Claude Code and Codex native cockpit cards today; an adapter contract lets more sources be added without core changes.
-- **Clear limits.** Track per-agent 5h and weekly windows, reset timing, and context where exposed, with each gauge's risk state shown via text + color (not color alone).
+- **Multi-agent.** Claude Code and Codex native cockpit cards today; an adapter
+  contract lets more sources be added without core changes.
+- **Clear limits.** Track per-agent 5h and weekly windows, reset timing, and
+  context where exposed, with each gauge's risk state shown via text + color
+  (not color alone).
 
 ![The TokenGauge cockpit showing live Claude Code and Codex gauge cards with 5-hour and weekly windows](docs/images/cockpit-overview.png)
 
@@ -112,9 +123,24 @@ and is native-first: it does not scan your conversation logs by default.
 
 ## What TokenGauge does not do
 
-- It does **not** read prompts, completions, source code, file contents, terminal output, tool arguments or results, arbitrary environment variables, secrets, OAuth tokens, cookies, raw transcripts, or git remote URLs.
-- It does **not** attach to or inspect the internal state of the official Claude Code or Codex VS Code extensions. It only reads the local native surfaces described under [Sources](#sources).
-- For the opt-in Codex probe, it may inspect a small allowlisted set of process environment metadata (such as `HOME`, `SHELL`, `PATH`, `XDG_*`, locale/user variables like `LANG`, `USER`, `TERM`, `TMPDIR`, plus `CODEX_HOME`, `NVM_DIR`, `NVM_BIN`, and their Windows equivalents) for two purposes: locating your local `codex` executable, and passing a bounded environment to the spawned `codex` process so your own tool can find its own config and credentials. If `codex` is not on the extension host's `PATH`, TokenGauge may run your own shell non-interactively to resolve it. Login-capable shells such as Bash or Zsh use `$SHELL -lc 'command -v codex'`; `sh` and `dash` use `-c` instead. Raw environment values and resolved executable paths are not shown in UI/diagnostics and are not persisted as usage data.
+- It does **not** read prompts, completions, source code, file contents,
+  terminal output, tool arguments or results, arbitrary environment variables,
+  secrets, OAuth tokens, cookies, raw transcripts, or git remote URLs.
+- It does **not** attach to or inspect the internal state of the official Claude
+  Code or Codex VS Code extensions. It only reads the local native surfaces
+  described under [Sources](#sources).
+- For the opt-in Codex probe, it may inspect a small allowlisted set of process
+  environment metadata (such as `HOME`, `SHELL`, `PATH`, `XDG_*`,
+  locale/user variables like `LANG`, `USER`, `TERM`, `TMPDIR`, plus
+  `CODEX_HOME`, `NVM_DIR`, `NVM_BIN`, and their Windows equivalents) for two
+  purposes: locating your local `codex` executable, and passing a bounded
+  environment to the spawned `codex` process so your own tool can find its own
+  config and credentials. If `codex` is not on the extension host's `PATH`,
+  TokenGauge may run your own shell non-interactively to resolve it.
+  Login-capable shells such as Bash or Zsh use
+  `$SHELL -lc 'command -v codex'`; `sh` and `dash` use `-c` instead. Raw
+  environment values and resolved executable paths are not shown in
+  UI/diagnostics and are not persisted as usage data.
 - It does **not** read your provider credential stores, such as
   `~/.claude/.credentials.json`, `~/.codex/auth.json`, or the equivalent OS
   keychain entries, and it never refreshes or rewrites a credential.
@@ -122,10 +148,13 @@ and is native-first: it does not scan your conversation logs by default.
   network request at all; the only process that ever contacts a provider is your
   own `codex` executable, when you explicitly enable the Codex probe, using its
   own existing login.
-- It does **not** intercept HTTPS traffic from other extensions or the system (no MITM).
+- It does **not** intercept HTTPS traffic from other extensions or the system
+  (no MITM).
 - It does **not** auto-install tooling or make network calls to obtain it.
 - It does **not** send any telemetry to the TokenGauge authors.
-- It does **not** guess. When a native source does not report a value, the field reads unknown/unavailable rather than a believable-looking number, and missing cost is shown as `cost unknown`, never `$0.00`.
+- It does **not** guess. When a native source does not report a value, the field
+  reads unknown/unavailable rather than a believable-looking number, and missing
+  cost is shown as `cost unknown`, never `$0.00`.
 
 ## Will this work for my setup?
 
@@ -142,20 +171,48 @@ and is native-first: it does not scan your conversation logs by default.
 
 **What you need**
 
-- VS Code 1.95 or newer, local or remote (WSL, Remote-SSH, Dev Containers; see the Remote section below).
-- For the Claude card: Claude Code running as a **CLI** in a terminal (any terminal, including the VS Code integrated terminal), plus a small statusLine writer script. The primary setup below uses a Node.js writer so it does not need `jq`, `sha256sum`, `chmod`, or a shell-script shebang.
-- For the Codex card: the Codex CLI installed and signed in on the same side as TokenGauge, plus the explicit probe opt-in. Codex support is experimental and limited to the short and weekly app-server usage-window shapes this TokenGauge version recognizes.
+- VS Code 1.95 or newer, local or remote (WSL, Remote-SSH, Dev Containers; see
+  the Remote section below).
+- For the Claude card: Claude Code running as a **CLI** in a terminal (any
+  terminal, including the VS Code integrated terminal), plus a small statusLine
+  writer script. The primary setup below uses a Node.js writer so it does not
+  need `jq`, `sha256sum`, `chmod`, or a shell-script shebang.
+- For the Codex card: the Codex CLI installed and signed in on the same side as
+  TokenGauge, plus the explicit probe opt-in. Codex support is experimental and
+  limited to the short and weekly app-server usage-window shapes this TokenGauge
+  version recognizes.
 
 **Terminal vs. VS Code extension sessions**
 
-- **Claude Code:** the Claude card is fed by Claude Code's statusLine feature, which runs in CLI terminal sessions. Sessions run through the Claude Code VS Code extension's graphical panel do not run statusLine commands, so they never refresh the snapshot. Panel usage still counts toward the same account 5h/weekly limits, and it shows up in TokenGauge as soon as any CLI session reports a fresh sample. TokenGauge never reads the panel's internal state.
-- **Codex:** the opt-in probe asks your local `codex app-server` for account-level rate-limit windows as reported by that local app-server. It does not attach to or inspect an active Codex terminal or IDE chat session, and it is not a Codex API billing or cost meter.
+- **Claude Code:** the Claude card is fed by Claude Code's statusLine feature,
+  which runs in CLI terminal sessions. Sessions run through the Claude Code
+  VS Code extension's graphical panel do not run statusLine commands, so they
+  never refresh the snapshot. Panel usage still counts toward the same account
+  5h/weekly limits, and it shows up in TokenGauge as soon as any CLI session
+  reports a fresh sample. TokenGauge never reads the panel's internal state.
+- **Codex:** the opt-in probe asks your local `codex app-server` for
+  account-level rate-limit windows as reported by that local app-server. It does
+  not attach to or inspect an active Codex terminal or IDE chat session, and it
+  is not a Codex API billing or cost meter.
 
 **Plans and API accounts**
 
-- Claude Code reports the 5h/weekly `rate_limits` statusLine fields only for Claude.ai subscription (Pro/Max) sessions, and only after the session's first response. API-key, Console, or third-party-provider usage may never produce those fields; the Claude card then shows an honest waiting/incomplete state. That is expected behavior, not a fault.
-- Different subscription tiers only change how fast the same percentages move. TokenGauge displays exactly the provider-reported percentages; it never knows or guesses a plan's absolute quota.
-- Codex support is experimental and opt-in. TokenGauge asks the local `codex app-server` for account rate-limit information. Codex may report a short usage window, a weekly usage window, or both; TokenGauge displays the recognized windows, promotes Weekly to the primary meter when the short window is absent, and does not fabricate omitted values. If your Codex version, plan, login mode, API-key setup, or app-server response reports neither recognized window, TokenGauge shows Codex as unavailable or unsupported instead of guessing.
+- Claude Code reports the 5h/weekly `rate_limits` statusLine fields only for
+  Claude.ai subscription (Pro/Max) sessions, and only after the session's first
+  response. API-key, Console, or third-party-provider usage may never produce
+  those fields; the Claude card then shows an honest waiting/incomplete state.
+  That is expected behavior, not a fault.
+- Different subscription tiers only change how fast the same percentages move.
+  TokenGauge displays exactly the provider-reported percentages; it never knows
+  or guesses a plan's absolute quota.
+- Codex support is experimental and opt-in. TokenGauge asks the local
+  `codex app-server` for account rate-limit information. Codex may report a
+  short usage window, a weekly usage window, or both; TokenGauge displays the
+  recognized windows, promotes Weekly to the primary meter when the short window
+  is absent, and does not fabricate omitted values. If your Codex version, plan,
+  login mode, API-key setup, or app-server response reports neither recognized
+  window, TokenGauge shows Codex as unavailable or unsupported instead of
+  guessing.
 
 TokenGauge visualizes limits. It never enforces them, blocks requests, or sends alerts.
 
@@ -554,7 +611,9 @@ Claude Code sessions at once**. Start with single-file mode; it is the simplest.
     }
   }
   ```
-  TokenGauge reads only that exact directory, non-recursively. It considers up to 32 hash-named snapshot files, treats files rewritten within about 90 seconds as active, and never deletes snapshot files.
+  TokenGauge reads only that exact directory, non-recursively. It considers
+  up to 32 hash-named snapshot files, treats files rewritten within about
+  90 seconds as active, and never deletes snapshot files.
   One timing difference: single-file mode also watches the exact configured
   file for instant pickup, while directory mode is poll-only — updates appear
   on the next poll (at most about 15 seconds).
@@ -571,8 +630,15 @@ a configured Claude statusLine snapshot and/or the explicit Codex probe opt-in.
 
 **Native cockpit:**
 
-- `tokenGauge.claude.statuslineSnapshotPath`: where the cockpit reads the passive Claude statusLine snapshot you choose to write (the opt-in native bridge).
-- `tokenGauge.providers.codex.nativeStatusProbe` (default `false`): the **explicit opt-in** for the local Codex native app-server probe. Off by default; nothing is spawned while off. When on and the Codex card is visible, TokenGauge resolves the local `codex` executable through sanitized local resolvers and never displays the raw path. Hiding the Codex card stops probes without changing this setting.
+- `tokenGauge.claude.statuslineSnapshotPath`: where the cockpit reads the
+  passive Claude statusLine snapshot you choose to write (the opt-in native
+  bridge).
+- `tokenGauge.providers.codex.nativeStatusProbe` (default `false`): the
+  **explicit opt-in** for the local Codex native app-server probe. Off by
+  default; nothing is spawned while off. When on and the Codex card is visible,
+  TokenGauge resolves the local `codex` executable through sanitized local
+  resolvers and never displays the raw path. Hiding the Codex card stops probes
+  without changing this setting.
 - `tokenGauge.display.cards.claude.visible` and
   `tokenGauge.display.cards.codex.visible` (default `true`): display-only card
   visibility. Hidden providers are omitted from the cockpit and status bar.
@@ -581,8 +647,8 @@ a configured Claude statusLine snapshot and/or the explicit Codex probe opt-in.
 - `tokenGauge.display.showTechnicalDetails` (default `false`): shows the
   context-window meter and the provider-reported cost line on cockpit cards. Off
   by default for a simpler card; warnings and the always-on provenance footer are
-  unaffected. Raw source and accuracy internals are not card elements; they appear in
-  **TokenGauge: Cockpit Diagnostics**.
+  unaffected. Raw source and accuracy internals are not card elements; they
+  appear in **TokenGauge: Cockpit Diagnostics**.
 - `tokenGauge.pollIntervalSeconds` (default `15`, range 10 to 15): how often the
   cockpit re-checks native status files and re-renders. These checks are local
   file reads. The Codex native probe is independent of this setting and waits at
@@ -591,12 +657,20 @@ a configured Claude statusLine snapshot and/or the explicit Codex probe opt-in.
 Settings changes apply live; the cockpit rebuilds automatically when a
 TokenGauge setting changes.
 
-> Native-only alerting is not part of the first release. The cockpit shows current provider-visible status; threshold notifications may be designed later.
+> Native-only alerting is not part of the first release. The cockpit shows
+> current provider-visible status; threshold notifications may be designed later.
 
 **Privacy posture (private by default):**
 
-- TokenGauge keeps no usage store and never persists raw paths or path hashes. Native values are read at display time. The cockpit may keep sanitized display state in VS Code webview state while the view is active or restored, but it does not store raw prompts, completions, transcripts, terminal output, raw session IDs, or a usage-history database.
-- TokenGauge stores no API keys or provider credentials. Its local install salt, when created, lives in VS Code SecretStorage as a non-credential implementation detail for privacy-preserving hashing/redaction, not in `settings.json`.
+- TokenGauge keeps no usage store and never persists raw paths or path hashes.
+  Native values are read at display time. The cockpit may keep sanitized display
+  state in VS Code webview state while the view is active or restored, but it
+  does not store raw prompts, completions, transcripts, terminal output, raw
+  session IDs, or a usage-history database.
+- TokenGauge stores no API keys or provider credentials. Its local install salt,
+  when created, lives in VS Code SecretStorage as a non-credential
+  implementation detail for privacy-preserving hashing/redaction, not in
+  `settings.json`.
 
 ## Commands
 
@@ -607,18 +681,35 @@ commands are the primary surface; provider and local-data management commands ar
 
 **Setup:**
 
-- **TokenGauge: Set Up Claude statusLine**: write the Claude statusLine writer to `~/.tokengauge/claude/`, validate it with `node --check`, write the User-scope `tokenGauge.claude.statuslineSnapshotPath` for the extension host where the command runs, and show the exact `statusLine` line to add to `~/.claude/settings.json`. It does **not** edit your Claude config, write project settings, or change any privacy setting: the snapshot path is the only value it writes.
+- **TokenGauge: Set Up Claude statusLine**: write the Claude statusLine writer
+  to `~/.tokengauge/claude/`, validate it with `node --check`, write the
+  User-scope `tokenGauge.claude.statuslineSnapshotPath` for the extension host
+  where the command runs, and show the exact `statusLine` line to add to
+  `~/.claude/settings.json`. It does **not** edit your Claude config, write
+  project settings, or change any privacy setting: the snapshot path is the only
+  value it writes.
 
 **Cockpit (primary):**
 
 - **TokenGauge: Open Cockpit**: open the native multi-agent gauge cockpit.
-- **TokenGauge: Refresh Native Status (Cockpit)**: re-read the native agent surfaces. It never spawns the Codex probe unless `tokenGauge.providers.codex.nativeStatusProbe` is enabled and the Codex card is visible; with the probe off or the Codex card hidden, a refresh re-reads file snapshots only.
-- **TokenGauge: Configure Cockpit**: open provider-level settings groups. **Claude settings** includes the snapshot path and Claude card visibility. **Codex settings** includes the opt-in probe and Codex card visibility. Read-only: it shows a picker and opens filtered Settings pages, and never changes a value for you.
-- **TokenGauge: Cockpit Diagnostics**: bounded, redacted cockpit health report (rule ids, booleans, and counts only; never raw paths, ids, or payloads).
+- **TokenGauge: Refresh Native Status (Cockpit)**: re-read the native agent
+  surfaces. It never spawns the Codex probe unless
+  `tokenGauge.providers.codex.nativeStatusProbe` is enabled and the Codex card
+  is visible; with the probe off or the Codex card hidden, a refresh re-reads
+  file snapshots only.
+- **TokenGauge: Configure Cockpit**: open provider-level settings groups.
+  **Claude settings** includes the snapshot path and Claude card visibility.
+  **Codex settings** includes the opt-in probe and Codex card visibility.
+  Read-only: it shows a picker and opens filtered Settings pages, and never
+  changes a value for you.
+- **TokenGauge: Cockpit Diagnostics**: bounded, redacted cockpit health report
+  (rule ids, booleans, and counts only; never raw paths, ids, or payloads).
 
 **Advanced / optional:**
 
-- **TokenGauge: Privacy & Data Report**: view the redacted, locally generated privacy & data report (exactly what is and is not read or stored). TokenGauge stores no API keys or provider credentials.
+- **TokenGauge: Privacy & Data Report**: view the redacted, locally generated
+  privacy & data report (exactly what is and is not read or stored). TokenGauge
+  stores no API keys or provider credentials.
 
 ## Status bar, badges, and timing
 
@@ -726,29 +817,55 @@ In practice that means:
 
 ## Accuracy labels
 
-TokenGauge declares five accuracy labels — `exact`, `billing_authoritative`, `proxy_reported`, `partial`, `unknown` — and current v1 emits only `proxy_reported` and `unknown`. Cards surface the label as plain-language provenance ("Reported by Claude Code; not an official billing total"); the raw label ids appear in **TokenGauge: Cockpit Diagnostics** rather than on the card. TokenGauge does not synthesize or estimate usage. When native data is unavailable the value reads unknown/unavailable. See [ACCURACY.md](ACCURACY.md) for the full taxonomy and limitations.
+TokenGauge declares five accuracy labels — `exact`, `billing_authoritative`,
+`proxy_reported`, `partial`, `unknown` — and current v1 emits only
+`proxy_reported` and `unknown`. Cards surface the label as plain-language
+provenance ("Reported by Claude Code; not an official billing total"); the raw
+label ids appear in **TokenGauge: Cockpit Diagnostics** rather than on the card.
+TokenGauge does not synthesize or estimate usage. When native data is unavailable
+the value reads unknown/unavailable. See [ACCURACY.md](ACCURACY.md) for the full
+taxonomy and limitations.
 
 ## Privacy model
 
-TokenGauge is local-first and native-only. It persists **no usage data**. Native limit/usage values are read from the agent's own status surfaces at display time, not written to a usage store. The cockpit may keep sanitized display state in VS Code webview state while the view is active or restored. TokenGauge does not store raw prompts, completions, transcripts, terminal output, raw session IDs, or a usage-history database. v1 has no API-key feature; the only persistent data is a local install salt in VS Code SecretStorage (a non-credential value used by the `SecretManager` for privacy-preserving redaction/hashing), never in `settings.json`. See [PRIVACY.md](PRIVACY.md) for the full data policy and SecretStorage caveats.
+TokenGauge is local-first and native-only. It persists **no usage data**. Native
+limit/usage values are read from the agent's own status surfaces at display time,
+not written to a usage store. The cockpit may keep sanitized display state in
+VS Code webview state while the view is active or restored. TokenGauge does not
+store raw prompts, completions, transcripts, terminal output, raw session IDs, or
+a usage-history database. v1 has no API-key feature; the only persistent data is
+a local install salt in VS Code SecretStorage (a non-credential value used by the
+`SecretManager` for privacy-preserving redaction/hashing), never in
+`settings.json`. See [PRIVACY.md](PRIVACY.md) for the full data policy and
+SecretStorage caveats.
 
-**Native-only, no log scanning.** The cockpit reads current limit state from native agent surfaces (the guarded Claude statusLine snapshot, the local `stats-cache.json` cost/model cache, and the opt-in Codex app-server probe). It does not need, parse, or read your conversation logs. There is no log-derived token-calculation path and no broad-log-root scanning. Prompts, completions, tool output, transcripts, secrets, account email, and raw paths are never read or stored. See [PRIVACY.md](PRIVACY.md) for exactly what is and is not read, by category.
+**Native-only, no log scanning.** The cockpit reads current limit state from
+native agent surfaces (the guarded Claude statusLine snapshot, the local
+`stats-cache.json` cost/model cache, and the opt-in Codex app-server probe). It
+does not need, parse, or read your conversation logs. There is no log-derived
+token-calculation path and no broad-log-root scanning. Prompts, completions, tool
+output, transcripts, secrets, account email, and raw paths are never read or
+stored. See [PRIVACY.md](PRIVACY.md) for exactly what is and is not read, by
+category.
 
 ## Troubleshooting
 
-Fixes for the states TokenGauge can show: no gauge, a stale value, a probe that returns nothing, and the Claude and Codex checks worth running first.
+Fixes for the states TokenGauge can show: no gauge, a stale value, a probe that
+returns nothing, and the Claude and Codex checks worth running first.
 
 See **[Troubleshooting](docs/troubleshooting.md)**.
 
 ## Remote, WSL, Dev Containers, and SSH
 
-How TokenGauge behaves when the extension host and your agent CLI run on different sides of a remote boundary, and which settings scope applies.
+How TokenGauge behaves when the extension host and your agent CLI run on
+different sides of a remote boundary, and which settings scope applies.
 
 See **[Remote, WSL, Dev Containers, and SSH](docs/remote-setups.md)**.
 
 ## Multiple windows and multiple Claude sessions
 
-What TokenGauge shows when several VS Code windows or several Claude Code sessions are active at once, and how the multiple-writers warning behaves.
+What TokenGauge shows when several VS Code windows or several Claude Code
+sessions are active at once, and how the multiple-writers warning behaves.
 
 See **[Multiple windows and multiple Claude sessions](docs/multiple-sessions.md)**.
 
@@ -778,16 +895,34 @@ If you never configure the statusLine integration, none of the above applies.
 
 ## Known limitations
 
-- The native cockpit reflects whatever the native agent surfaces expose locally. The Claude statusLine snapshot is read only if your own statusLine writer produces it, and the Codex native status probe is **opt-in and off by default**.
-- Claude 5h/weekly gauges require a Claude.ai subscription (Pro/Max) session; API-key, Console, or third-party-provider usage has no such windows to display.
-- Codex support is experimental and opt-in. TokenGauge asks the local `codex app-server` for account rate-limit information. TokenGauge recognizes short and weekly account-window responses independently; a weekly-only response remains usable, and a short-only response remains usable. If your Codex version, plan, login mode, API-key setup, or app-server response reports neither recognized window, TokenGauge shows Codex as unavailable or unsupported instead of guessing.
-- TokenGauge is not a Codex API billing meter and does not show Codex cost. Codex session context is unavailable in the tested app-server response, so TokenGauge shows Codex `Context unavailable` and `cost unknown` rather than fabricating them.
-- Anthropic does not publish a public tokenizer for current Claude models. TokenGauge does not display token counts and does not reconstruct them from logs; the native percentages and cost it shows come from the agent's own statusLine/stats-cache surfaces and are labeled `proxy_reported` (never `exact`).
+- The native cockpit reflects whatever the native agent surfaces expose locally.
+  The Claude statusLine snapshot is read only if your own statusLine writer
+  produces it, and the Codex native status probe is **opt-in and off by
+  default**.
+- Claude 5h/weekly gauges require a Claude.ai subscription (Pro/Max) session;
+  API-key, Console, or third-party-provider usage has no such windows to display.
+- Codex support is experimental and opt-in. TokenGauge asks the local
+  `codex app-server` for account rate-limit information. TokenGauge recognizes
+  short and weekly account-window responses independently; a weekly-only
+  response remains usable, and a short-only response remains usable. If your
+  Codex version, plan, login mode, API-key setup, or app-server response reports
+  neither recognized window, TokenGauge shows Codex as unavailable or
+  unsupported instead of guessing.
+- TokenGauge is not a Codex API billing meter and does not show Codex cost.
+  Codex session context is unavailable in the tested app-server response, so
+  TokenGauge shows Codex `Context unavailable` and `cost unknown` rather than
+  fabricating them.
+- Anthropic does not publish a public tokenizer for current Claude models.
+  TokenGauge does not display token counts and does not reconstruct them from
+  logs; the native percentages and cost it shows come from the agent's own
+  statusLine/stats-cache surfaces and are labeled `proxy_reported` (never
+  `exact`).
 - Cost is shown as `cost unknown` whenever the native source does not expose it.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the verification commands and privacy rules every change must satisfy.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the verification commands and privacy
+rules every change must satisfy.
 
 ## License
 
