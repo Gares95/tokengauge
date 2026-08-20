@@ -4,15 +4,14 @@ This guide is for **local Windows VS Code**: Claude Code, Node.js, the writer
 script, the snapshot file, and the TokenGauge extension host all run in the
 same local Windows environment. PowerShell is the shell used throughout.
 
-**Evidence note for this guide.** Every writer and inspection command below was
-executed at CLI level in Windows PowerShell 5.1 with Windows Node on NTFS
-(file mode, directory mode, paths with spaces, drive-letter paths with both
-backslashes and forward slashes, replacement of existing snapshots, and
-malformed-input rejection). The complete flow of the **Windows VS Code
-extension host reading the snapshot** is supported by the product contract but
-was **not verified end to end in this remediation**; if the cockpit does not
-pick up a snapshot you verified on disk, use the troubleshooting section and
-Cockpit Diagnostics.
+**Evidence note for this guide.** This setup was smoke-tested with local Windows VS Code,
+local Claude Code, and the canonical Node writer through PowerShell and Git Bash.
+The writer and inspection commands below were also exercised at CLI level in
+Windows PowerShell 5.1 with Windows Node on NTFS (file mode, directory mode,
+paths with spaces, drive-letter paths with both backslashes and forward slashes,
+replacement of existing snapshots, and malformed-input rejection). If the cockpit
+does not pick up a snapshot you verified on disk, use the troubleshooting section
+and Cockpit Diagnostics.
 
 ## Prerequisites
 
@@ -23,17 +22,14 @@ Cockpit Diagnostics.
 - VS Code with TokenGauge installed, running as a local window (not a
   Remote/WSL window — for WSL, use the [Remote WSL guide](wsl.md)).
 
-> **Visual walkthrough note:** these captures illustrate the setup flow, but
-> some frames show an earlier writer version. Do not copy code or commands
-> from the images or animations. Use the current commands and writer blocks
-> in this guide and the README.
-
 ## 1. Create the writer
 
 > **Fastest route:** run **TokenGauge: Set Up Claude statusLine** from the VS Code
 > Command Palette (`Ctrl+Shift+P`, or `Cmd+Shift+P` on macOS) instead. It writes the same writer file, validates it, and sets
-> the snapshot path in the scope this window reads, leaving you only the
-> `statusLine` line to add to your own Claude settings. Run it from a VS Code
+> the User-scope snapshot path for the extension host where the command runs,
+> leaving you only the `statusLine` line to add to your own Claude settings.
+> Workspace overrides can still win, so check Settings or Diagnostics if the
+> card stays empty. Run it from a VS Code
 > window attached to Windows (a local window, not Remote), so the file lands on that side. The steps below are the
 > manual equivalent.
 
@@ -48,15 +44,6 @@ To create the writer by hand on Windows, copy that block, then follow the
 `$HOME\.tokengauge\claude\claude-statusline-writer.mjs`, validates it with
 `node --check $writer`, and prints the absolute path with
 `(Resolve-Path $writer).Path`.
-
-<details>
-<summary>Animation: creating and validating the writer in PowerShell (illustrative)</summary>
-
-![Illustrative animation of creating the Claude statusLine writer from the README block in Windows PowerShell; some frames show an earlier writer version, so use the current README block instead of copying from the frames](../images/setup/windows/windows-claude-create-writer.webp)
-
-Static fallback: [create-writer still (PNG)](../images/setup/windows/windows-claude-create-writer.png).
-
-</details>
 
 ## 2. Wire Claude Code's statusLine command
 
@@ -73,7 +60,7 @@ writer path printed by `Resolve-Path`:
 }
 ```
 
-Windows path notes, all exercised at CLI level in this remediation:
+Windows path notes, all exercised at CLI level during setup validation:
 
 - Forward slashes (`C:/Users/...`) and backslashes (`C:\Users\...`) both work
   for the writer's `--file`/`--dir` targets. Forward slashes avoid JSON
@@ -87,30 +74,12 @@ Windows path notes, all exercised at CLI level in this remediation:
   POSIX feature, and Windows ACLs are not modified by the writer — this is
   designed behavior, not a POSIX permission guarantee.
 
-<details>
-<summary>Animation: editing settings.json (illustrative)</summary>
-
-![Illustrative animation of merging the statusLine command into the Windows Claude Code settings.json; the command form shown in some frames is an earlier argument-less version — use the --file or --dir command printed in this guide](../images/setup/windows/windows-claude-statusline-settings.webp)
-
-Static fallback: [statusLine settings still (PNG)](../images/setup/windows/windows-claude-statusline-settings.png).
-
-</details>
-
 ## 3. Point TokenGauge at the snapshot
 
 Set `tokenGauge.claude.statuslineSnapshotPath` (User settings in a local
 window) to the snapshot **output** path, for example
 `C:/Users/YOUR_USER/.tokengauge/claude/statusline-snapshot.json` — the JSON
 the writer produces, not the writer script itself.
-
-<details>
-<summary>Animation: setting the snapshot path (illustrative)</summary>
-
-![Illustrative animation of setting tokenGauge.claude.statuslineSnapshotPath in the Settings UI; the terminal visible in some frames shows an earlier writer session — the settings steps themselves are current](../images/setup/windows/windows-claude-snapshot-path.webp)
-
-Static fallback: [snapshot path still (PNG)](../images/setup/windows/windows-claude-snapshot-path.png).
-
-</details>
 
 ## Directory mode (multiple Claude sessions)
 
@@ -142,7 +111,7 @@ Directory mode is poll-only — updates appear on the next poll (at most about
 Check what Claude Code will run. In PowerShell, single-quoted `node -e`
 programs containing double quotes do **not** survive PowerShell 5.1 argument
 quoting, so use this form (outer double quotes, single quotes inside the
-JavaScript), which was executed and verified in this remediation:
+JavaScript), which was executed and verified during setup validation:
 
 ```powershell
 node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).statusLine?.command ?? ''" "$HOME\.claude\settings.json"
@@ -152,15 +121,6 @@ It prints the configured `statusLine.command` only — a structural inspection
 that never dumps the rest of your settings. After the next Claude Code
 response, confirm the snapshot file (or a hash-named file in the snapshot
 directory) exists and has a recent modification time.
-
-<details>
-<summary>Animation: the Claude card going live (illustrative)</summary>
-
-![Illustrative animation of the TokenGauge Claude card turning Live after the snapshot is configured; the statusLine command visible in some frames is an earlier argument-less form — use the --file or --dir command from this guide](../images/setup/windows/windows-claude-live.webp)
-
-Static fallback: [Claude live still (PNG)](../images/setup/windows/windows-claude-live.png).
-
-</details>
 
 ## Troubleshooting
 
@@ -180,8 +140,7 @@ Static fallback: [Claude live still (PNG)](../images/setup/windows/windows-claud
 ## Shell and platform notes
 
 - This guide is PowerShell-first. Git Bash on Windows can also run the same
-  canonical Node writer, but Git Bash execution was not exercised in this
-  remediation and using it does not add POSIX file permissions or Unix tools
-  to Windows.
-- macOS is not covered by this guide and macOS is not verified in this
-  remediation.
+  canonical Node writer and was smoke-tested with local Windows Claude Code.
+  It still uses the Windows filesystem and does not add POSIX file permissions
+  or Unix filesystem semantics to Windows.
+- macOS is not covered by this guide and has not been verified for this guide.

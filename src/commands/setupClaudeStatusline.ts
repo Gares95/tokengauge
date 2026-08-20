@@ -78,14 +78,16 @@ const SCOPE_LABEL: Record<SettingsScope, string> = {
 };
 
 // The exact JSON the user pastes. Windows paths are written with forward
-// slashes, which is valid in JSON and avoids escaping mistakes.
+// slashes, which is valid in JSON and avoids escaping mistakes. Each path is
+// also quoted inside the command so home directories with spaces still work.
 export function statusLineCommandJson(writerPath: string, snapshotPath: string): string {
   const w = writerPath.replace(/\\/g, '/');
   const s = snapshotPath.replace(/\\/g, '/');
+  const command = `node ${JSON.stringify(w)} --file ${JSON.stringify(s)}`;
   return `{
   "statusLine": {
     "type": "command",
-    "command": "node ${w} --file ${s}"
+    "command": ${JSON.stringify(command)}
   }
 }`;
 }
@@ -95,9 +97,10 @@ function report(input: {
   readonly snapshotPath: string;
   readonly scope: SettingsScope;
   readonly syntaxOk: boolean;
+  readonly wroteSetting: boolean;
   readonly remote: string | undefined;
 }): string {
-  const { writerPath, snapshotPath, scope, syntaxOk, remote } = input;
+  const { writerPath, snapshotPath, scope, syntaxOk, wroteSetting, remote } = input;
   return [
     '# TokenGauge: Claude statusLine setup',
     '',
@@ -107,7 +110,9 @@ function report(input: {
     syntaxOk
       ? '- Verified it parses with `node --check`.'
       : '- Could not verify it with `node --check`. Node may not be on this PATH. The writer was still written; check it before relying on the card.',
-    `- Set \`tokenGauge.claude.statuslineSnapshotPath\` to \`${snapshotPath}\` in **${SCOPE_LABEL[scope]}** settings.`,
+    wroteSetting
+      ? `- Set \`tokenGauge.claude.statuslineSnapshotPath\` to \`${snapshotPath}\` in **${SCOPE_LABEL[scope]}** settings.`
+      : `- Could not save \`tokenGauge.claude.statuslineSnapshotPath\`. Set it manually to \`${snapshotPath}\` in **${SCOPE_LABEL[scope]}** settings before expecting the Claude card to read this snapshot.`,
     ...(remote !== undefined
       ? [
           '',
@@ -187,7 +192,7 @@ export async function runSetupClaudeStatusline(
   }
 
   await deps.renderReport(
-    report({ writerPath, snapshotPath, scope, syntaxOk, remote: deps.remoteName() }),
+    report({ writerPath, snapshotPath, scope, syntaxOk, wroteSetting, remote: deps.remoteName() }),
   );
   deps.showInfo('Writer created. One line left to paste into your Claude settings.');
 

@@ -202,6 +202,8 @@ requirePhrases(
     'claude-statusline-writer.mjs',
     'node --check',
     'statusLine.command',
+    'User-scope `tokenGauge.claude.statuslineSnapshotPath`',
+    'Workspace or Remote overrides can still win',
     '--file /home/YOUR_USER/.tokengauge/claude/statusline-snapshot.json',
     '--dir /home/YOUR_USER/.tokengauge/claude/statusline-snapshots',
     'node C:/Users/YOUR_USER/.tokengauge/claude/claude-statusline-writer.mjs',
@@ -216,6 +218,8 @@ requirePhrases(
     'tokenGauge.display.cards.claude.visible',
     'tokenGauge.display.cards.codex.visible',
     'No cards visible',
+    '`· Codex 42% weekly`',
+    'Codex shows `off` only when the probe is disabled',
   ],
   'missing-setup-guidance',
 );
@@ -227,6 +231,8 @@ forbidPhrases(
     '[Environment]::SetEnvironmentVariable',
     'C:\\Windows\\System32\\bash.exe',
     '\\\\wsl.localhost\\Ubuntu\\home\\YOUR_USER',
+    'scope this window reads',
+    'sets it in the right place for you',
   ],
   'over-detailed-windows-setup',
 );
@@ -429,7 +435,7 @@ for (const file of SETUP_GUIDES) {
       'about 90 seconds',
       'never deletes snapshot files',
       'poll-only',
-      'macOS is not verified',
+      'macOS is not covered',
     ],
     'missing-guide-truth-markers',
   );
@@ -454,7 +460,7 @@ for (const file of SETUP_GUIDES) {
 if (docs['docs/setup/windows.md'] !== undefined) {
   requirePhrases(
     'docs/setup/windows.md',
-    ['not verified end to end in this remediation'],
+    ['smoke-tested with local Windows VS Code', 'PowerShell and Git Bash'],
     'missing-windows-evidence-narrowing',
   );
 }

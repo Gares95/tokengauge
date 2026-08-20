@@ -64,6 +64,7 @@ function cleanDocs() {
       // above; a second body here now fails duplicate-powershell-writer-body.
       'If you intentionally keep a custom shell writer instead. ' +
       'Create claude-statusline-writer.mjs and validate it with node --check. ' +
+      'Write the User-scope `tokenGauge.claude.statuslineSnapshotPath`; Workspace or Remote overrides can still win. ' +
       'Print the absolute writer path with realpath ~/.tokengauge/claude/claude-statusline-writer.mjs. ' +
       'No `jq`, `sha256sum`, `chmod`, or `sed` step is needed. ' +
       'Do not run bare `/statusline` for TokenGauge setup. ' +
@@ -84,6 +85,7 @@ function cleanDocs() {
       'Opt in to tokenGauge.providers.codex.nativeStatusProbe only when wanted and keep the Codex card visible for probes. ' +
       'Use tokenGauge.display.cards.claude.visible and tokenGauge.display.cards.codex.visible for card visibility. ' +
       'When both are hidden, the cockpit shows No cards visible. ' +
+      'The status bar may show `· Codex 42% weekly`. Codex shows `off` only when the probe is disabled. ' +
       'In snapshot directory mode there is no file watcher; directory mode is poll-only. ' +
       'vsce rewrites relative links to absolute blob/HEAD URLs; releases use merge or tag-pin delivery. ' +
       'See [PRIVACY.md](PRIVACY.md) and jump to [setup](#quick-start).\n',
@@ -269,6 +271,21 @@ runFixture(
   },
 );
 
+runFixture(
+  'stale-effective-scope-overclaim',
+  (docs) => {
+    docs['README.md'] =
+      `${docs['README.md']}\nThe setup command sets the snapshot path in the scope this window reads.\n`;
+  },
+  (result) => {
+    assert(result.status !== 0, 'stale setup-scope overclaim should fail');
+    assert(
+      result.output.includes('over-detailed-windows-setup'),
+      'expected stale scope wording rule',
+    );
+  },
+);
+
 // Test 2e: the stale-removed-subsystem gate. Re-marketing a removed
 // subsystem (here a JSONL usage store) as a current capability in README/PRIVACY
 // fails, without leaking the doc body.
@@ -409,12 +426,12 @@ function cleanGuide(extensionHostLine) {
     'it considers up to 32 hash-named snapshot files, treats files rewritten within ' +
     'about 90 seconds as active, and never deletes snapshot files. Directory mode is poll-only. ' +
     'Pass --file for a single snapshot or --dir for a per-session directory. ' +
-    `${extensionHostLine} macOS is not verified in this remediation.\n`
+    `${extensionHostLine} macOS is not covered by this guide.\n`
   );
 }
 function cleanGuides(docs) {
   docs['docs/setup/windows.md'] = cleanGuide(
-    'The Windows extension-host flow was not verified end to end in this remediation.',
+    'This setup was smoke-tested with local Windows VS Code through PowerShell and Git Bash.',
   );
   docs['docs/setup/wsl.md'] = cleanGuide(
     'The configured snapshot path must be visible to the extension host that reads it.',
@@ -438,12 +455,12 @@ runGuideFixture('guides-clean', null, (result) => {
 });
 
 runGuideFixture(
-  'guide-windows-tested-overclaim',
+  'guide-cross-platform-overclaim',
   (docs) => {
-    docs['docs/setup/windows.md'] += 'Windows was tested end to end in this remediation.\n';
+    docs['docs/setup/windows.md'] += 'This setup is cross-platform verified.\n';
   },
   (result) => {
-    assert(result.status !== 0, 'Windows end-to-end overclaim should fail');
+    assert(result.status !== 0, 'cross-platform overclaim should fail');
     assert(result.output.includes('stale-guide-claim'), 'expected stale-guide-claim rule');
   },
 );
@@ -528,7 +545,7 @@ runGuideFixture(
   'guide-windows-narrowing-removed',
   (docs) => {
     docs['docs/setup/windows.md'] = docs['docs/setup/windows.md'].replace(
-      'was not verified end to end in this remediation',
+      'smoke-tested with local Windows VS Code',
       'works everywhere',
     );
   },
