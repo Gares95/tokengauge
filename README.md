@@ -301,12 +301,12 @@ Open the Command Palette with `Ctrl+Shift+P` (`Cmd+Shift+P` on macOS) and run
   byte-for-byte the same writer documented below, so there is no shell quoting or
   here-doc to get wrong.
 - Validates it with `node --check` and tells you if that fails.
-- Sets `tokenGauge.claude.statuslineSnapshotPath` to the matching snapshot path,
-  in the User settings this window reads. Note that "User settings" names a
+- Writes the User-scope `tokenGauge.claude.statuslineSnapshotPath` for the
+  extension host where the command runs. Note that "User settings" names a
   different file depending on where the extension host runs: in a WSL, Remote-SSH,
   or Dev Container window it is that remote's own User settings, not the local
-  desktop ones. The command writes the remote file, which is why the value it sets
-  is not the value you see in a local settings tab.
+  desktop ones. Workspace or Remote overrides can still win, so if the card stays
+  empty, check the Settings tabs and Cockpit Diagnostics.
 - Opens a short report containing the exact `statusLine` line to add.
 
 It then leaves you one step, on purpose:
@@ -607,7 +607,7 @@ commands are the primary surface; provider and local-data management commands ar
 
 **Setup:**
 
-- **TokenGauge: Set Up Claude statusLine**: write the Claude statusLine writer to `~/.tokengauge/claude/`, validate it with `node --check`, set `tokenGauge.claude.statuslineSnapshotPath` in the scope this window reads, and show the exact `statusLine` line to add to `~/.claude/settings.json`. It does **not** edit your Claude config and does not change any privacy setting: the snapshot path is the only value it writes.
+- **TokenGauge: Set Up Claude statusLine**: write the Claude statusLine writer to `~/.tokengauge/claude/`, validate it with `node --check`, write the User-scope `tokenGauge.claude.statuslineSnapshotPath` for the extension host where the command runs, and show the exact `statusLine` line to add to `~/.claude/settings.json`. It does **not** edit your Claude config, write project settings, or change any privacy setting: the snapshot path is the only value it writes.
 
 **Cockpit (primary):**
 
@@ -625,9 +625,10 @@ commands are the primary surface; provider and local-data management commands ar
 **Status bar.** TokenGauge adds one `TG:` status bar item. `TG: open cockpit`
 means no native data has been posted yet. With data it reads like
 `TG: Claude 43% 5h`, with `(last known)` appended when the value is retained
-rather than live and a `· Codex 12%` hint appended when the Codex card has a
-value. The item takes the warning background when the Claude 5h window is at
-warning or critical risk. Clicking it always opens the cockpit.
+rather than live and a window-labelled Codex hint such as `· Codex 12% 5h` or
+`· Codex 42% weekly` appended when the Codex card has a value. Codex reads `off` only when the probe is disabled; pending or unavailable probes use different labels.
+The item takes the warning background when the Claude 5h window is at warning or
+critical risk. Clicking it always opens the cockpit.
 
 **Card badges.** `Live` (fresh native sample), `Last known` (retained value,
 with the reason stated on the card), `Not configured` (no snapshot path set),

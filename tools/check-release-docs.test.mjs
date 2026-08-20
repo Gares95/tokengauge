@@ -64,6 +64,7 @@ function cleanDocs() {
       // above; a second body here now fails duplicate-powershell-writer-body.
       'If you intentionally keep a custom shell writer instead. ' +
       'Create claude-statusline-writer.mjs and validate it with node --check. ' +
+      'Write the User-scope `tokenGauge.claude.statuslineSnapshotPath`; Workspace or Remote overrides can still win. ' +
       'Print the absolute writer path with realpath ~/.tokengauge/claude/claude-statusline-writer.mjs. ' +
       'No `jq`, `sha256sum`, `chmod`, or `sed` step is needed. ' +
       'Do not run bare `/statusline` for TokenGauge setup. ' +
@@ -84,6 +85,7 @@ function cleanDocs() {
       'Opt in to tokenGauge.providers.codex.nativeStatusProbe only when wanted and keep the Codex card visible for probes. ' +
       'Use tokenGauge.display.cards.claude.visible and tokenGauge.display.cards.codex.visible for card visibility. ' +
       'When both are hidden, the cockpit shows No cards visible. ' +
+      'The status bar may show `· Codex 42% weekly`. Codex reads `off` only when the probe is disabled. ' +
       'In snapshot directory mode there is no file watcher; directory mode is poll-only. ' +
       'vsce rewrites relative links to absolute blob/HEAD URLs; releases use merge or tag-pin delivery. ' +
       'See [PRIVACY.md](PRIVACY.md) and jump to [setup](#quick-start).\n',
@@ -265,6 +267,21 @@ runFixture(
     assert(
       result.output.includes('automatic-claude-settings-edit'),
       'expected automatic Claude settings edit rule',
+    );
+  },
+);
+
+runFixture(
+  'stale-effective-scope-overclaim',
+  (docs) => {
+    docs['README.md'] =
+      `${docs['README.md']}\nThe setup command sets the snapshot path in the scope this window reads.\n`;
+  },
+  (result) => {
+    assert(result.status !== 0, 'stale setup-scope overclaim should fail');
+    assert(
+      result.output.includes('over-detailed-windows-setup'),
+      'expected stale scope wording rule',
     );
   },
 );

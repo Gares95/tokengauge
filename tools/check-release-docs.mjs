@@ -202,6 +202,8 @@ requirePhrases(
     'claude-statusline-writer.mjs',
     'node --check',
     'statusLine.command',
+    'User-scope `tokenGauge.claude.statuslineSnapshotPath`',
+    'Workspace or Remote overrides can still win',
     '--file /home/YOUR_USER/.tokengauge/claude/statusline-snapshot.json',
     '--dir /home/YOUR_USER/.tokengauge/claude/statusline-snapshots',
     'node C:/Users/YOUR_USER/.tokengauge/claude/claude-statusline-writer.mjs',
@@ -216,6 +218,8 @@ requirePhrases(
     'tokenGauge.display.cards.claude.visible',
     'tokenGauge.display.cards.codex.visible',
     'No cards visible',
+    '`· Codex 42% weekly`',
+    'Codex reads `off` only when the probe is disabled',
   ],
   'missing-setup-guidance',
 );
@@ -227,6 +231,8 @@ forbidPhrases(
     '[Environment]::SetEnvironmentVariable',
     'C:\\Windows\\System32\\bash.exe',
     '\\\\wsl.localhost\\Ubuntu\\home\\YOUR_USER',
+    'scope this window reads',
+    'sets it in the right place for you',
   ],
   'over-detailed-windows-setup',
 );

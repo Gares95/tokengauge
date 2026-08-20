@@ -69,6 +69,10 @@ function harness(overrides: Partial<SetupClaudeStatuslineDeps> = {}) {
   return { deps, rec };
 }
 
+function commandFromJson(json: string): string {
+  return JSON.parse(json).statusLine.command;
+}
+
 suite('Set Up Claude statusLine: the hard constraint', () => {
   // The promise TokenGauge makes in the README and enforces in the release-docs
   // gate. The command's dependency surface has no seam that could write it, and
@@ -130,16 +134,30 @@ suite('Set Up Claude statusLine: what it does for the user', () => {
   test('the pasteable JSON points node at the writer and --file at the snapshot', () => {
     const json = statusLineCommandJson('/home/dev/.tokengauge/claude/w.mjs', '/home/dev/s.json');
     assert.match(json, /"type": "command"/);
-    assert.match(
-      json,
-      /node \/home\/dev\/\.tokengauge\/claude\/w\.mjs --file \/home\/dev\/s\.json/,
+    assert.equal(
+      commandFromJson(json),
+      'node "/home/dev/.tokengauge/claude/w.mjs" --file "/home/dev/s.json"',
     );
   });
 
   test('Windows paths are emitted with forward slashes so the JSON needs no escaping', () => {
     const json = statusLineCommandJson('C:\\Users\\dev\\w.mjs', 'C:\\Users\\dev\\s.json');
-    assert.ok(!json.includes('\\'), `no backslashes in the pasted JSON: ${json}`);
-    assert.match(json, /C:\/Users\/dev\/w\.mjs/);
+    const command = commandFromJson(json);
+    assert.ok(!command.includes('\\'), `no path backslashes in the command: ${command}`);
+    assert.equal(command, 'node "C:/Users/dev/w.mjs" --file "C:/Users/dev/s.json"');
+  });
+
+  test('paths with spaces are quoted in the pasteable command', () => {
+    const command = commandFromJson(
+      statusLineCommandJson(
+        'C:\\Users\\Dev User\\.tokengauge\\claude\\writer.mjs',
+        'C:\\Users\\Dev User\\.tokengauge\\claude\\snapshot.json',
+      ),
+    );
+    assert.equal(
+      command,
+      'node "C:/Users/Dev User/.tokengauge/claude/writer.mjs" --file "C:/Users/Dev User/.tokengauge/claude/snapshot.json"',
+    );
   });
 
   test('a local window writes User scope and says nothing about remotes', async () => {
@@ -212,5 +230,12 @@ suite('Set Up Claude statusLine: honest failure', () => {
     assert.equal(result.wroteWriter, true);
     assert.equal(result.wroteSetting, false);
     assert.equal(rec.reports.length, 1, 'the user still gets the paste instructions');
+    const report = rec.reports.join('\n');
+    assert.ok(
+      !report.includes('Set `tokenGauge.claude.statuslineSnapshotPath`'),
+      'must not falsely claim the setting was saved',
+    );
+    assert.match(report, /Could not save `tokenGauge\.claude\.statuslineSnapshotPath`/);
+    assert.match(report, /Set it manually/);
   });
 });

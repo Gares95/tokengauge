@@ -32,8 +32,10 @@ Cockpit Diagnostics.
 
 > **Fastest route:** run **TokenGauge: Set Up Claude statusLine** from the VS Code
 > Command Palette (`Ctrl+Shift+P`, or `Cmd+Shift+P` on macOS) instead. It writes the same writer file, validates it, and sets
-> the snapshot path in the scope this window reads, leaving you only the
-> `statusLine` line to add to your own Claude settings. Run it from a VS Code
+> the User-scope snapshot path for the extension host where the command runs,
+> leaving you only the `statusLine` line to add to your own Claude settings.
+> Workspace overrides can still win, so check Settings or Diagnostics if the
+> card stays empty. Run it from a VS Code
 > window attached to Windows (a local window, not Remote), so the file lands on that side. The steps below are the
 > manual equivalent.
 
