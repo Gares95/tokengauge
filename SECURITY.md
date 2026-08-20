@@ -1,19 +1,60 @@
 # Security Policy
 
-## Reporting a Vulnerability
+TokenGauge is a local-first VS Code extension. Its security policy starts with
+private reporting and supported versions, then documents the verification and
+release controls maintainers apply before publishing.
 
-Please report vulnerabilities through GitHub Security Advisories. Do not file
-public issues for unfixed vulnerabilities.
+## Report a Vulnerability
+
+Report vulnerabilities through **GitHub Security Advisories**. Do not file a
+public issue for an unfixed vulnerability.
+
+When reporting, include the affected version, operating system, VS Code host
+type (local, WSL, Remote-SSH, or Dev Container), and a minimal reproduction if
+one is available. Do not include secrets, tokens, raw provider payloads, account
+identifiers, private paths, prompts, transcripts, or terminal output. Use
+placeholders for sensitive values.
+
+## Response Expectations
+
+Security reports are reviewed by the project owner. High-impact issues affecting
+runtime security, credential handling, privacy boundaries, packaging, or release
+integrity are prioritized over ordinary feature work.
+
+If you need to follow up publicly, open an issue that says a private security
+advisory is pending, without technical details.
+
+## Supported Versions
+
+Security fixes target the latest published TokenGauge version and the current
+`main` branch. Older pre-release builds and locally modified VSIX files are not
+maintained as separate support lines.
+
+## What TokenGauge Protects
+
+TokenGauge's security posture is tied to its privacy model:
+
+- TokenGauge asks for no provider API keys and stores no provider credentials.
+- TokenGauge makes no outbound network calls by default.
+- The Codex native probe is explicit opt-in and runs the user's local `codex`
+  process only when the Codex card is visible.
+- Diagnostics and issue templates are designed to avoid raw payloads, prompts,
+  transcripts, account data, and raw paths.
+- Release and package checks fail closed when private files, generated assets,
+  or publish-capable automation appear in the wrong place.
+
+See [PRIVACY.md](PRIVACY.md) for the exact data boundary.
 
 ## Dependency Vulnerability Policy
 
-We run `npm audit --omit=dev --audit-level=high` against the production
-dependency graph in CI. Advisories with severity `high` or `critical` block the
-build. Lower severities are reported informationally only.
+CI runs `npm audit --omit=dev --audit-level=high` against the production
+dependency graph. Advisories with severity `high` or `critical` block the build.
+Lower severities are reported informationally unless they affect extension
+runtime security, secrets handling, packaging, release integrity, or log/privacy
+boundaries.
 
-An advisory of any severity that affects extension runtime security, secrets
-handling, packaging, or log parsing blocks the build regardless of severity. A
-human reviewer interprets this policy on the pull request.
+A human reviewer decides whether an advisory below `high` still blocks a pull
+request under this policy.
 
 GitHub Dependency Review Action is deferred until GitHub Code Security /
 Advanced Security is enabled for this repository. Runtime dependency audit
@@ -21,40 +62,38 @@ remains enforced by CI.
 
 ## Code Scanning Posture
 
-CodeQL code scanning and GitHub Dependency Review Action are deferred until
-Code Security / Advanced Security is available for this repository; they should
-be enabled at that point. Dependency graph and Dependabot are expected to be
-enabled in repository settings; `npm audit --omit=dev --audit-level=high`
-remains the enforced dependency vulnerability gate in CI.
+CodeQL code scanning and GitHub Dependency Review Action are deferred until Code
+Security / Advanced Security is available for this repository; they should be
+enabled at that point. Dependency graph and Dependabot are expected to be
+enabled in repository settings.
 
-## Supply-chain Posture
+## Supply-Chain Posture
 
 Every production dependency is exact-pinned. The `package-lock.json` is
-committed. CI installs via `npm ci`. Third-party GitHub Actions in the
-verification workflow are pinned to exact release versions (for example
-`actions/checkout@v4.2.2`, `actions/setup-node@v4.1.0`), not floating
-major-version tags; commit-SHA pinning is reserved for the future release
+committed, and CI installs with `npm ci`. Third-party GitHub Actions in the
+verification workflow are pinned to exact release versions, for example
+`actions/checkout@v4.2.2` and `actions/setup-node@v4.1.0`, not floating
+major-version tags. Commit-SHA pinning is reserved for the future release
 workflow.
 
 ## Packaging Posture
 
 The `package:vsix` npm script passes `--allow-missing-repository` defensively so
-local packaging works in any contributor checkout, including forks or detached
-worktrees where the `repository` field may differ. The `repository.url` in
-`package.json` is the canonical source of truth; the release automation, when
-added, relies on it directly.
+local packaging works in contributor checkouts, forks, and detached worktrees.
+The `repository.url` in `package.json` remains the canonical source of truth;
+future release automation relies on it directly.
 
 ## Release Workflow Posture
 
-TokenGauge's release posture is **GitHub Release first**. The default output of a
-release is a VSIX attached to a GitHub Release together with its SHA-256 checksum
+TokenGauge's release posture is **GitHub Release first**. The default release
+output is a VSIX attached to a GitHub Release together with its SHA-256 checksum
 and install/verification instructions.
 
 **The release workflow itself is deferred until release time.** This repository
 currently ships a verify-only CI workflow and no publish-capable automation. A
 static gate (`check:release-workflow`) enforces exactly that: while no release
 workflow exists it verifies CI stays verify-only, and the moment a release
-workflow is added it enforces the full locked posture below.
+workflow is added it enforces the locked posture below.
 
 - **Tag-only trigger.** The release workflow runs only on `v*` tags. It never
   runs on pull requests, and no publish-capable step runs on a pull request.
@@ -75,8 +114,8 @@ workflow is added it enforces the full locked posture below.
   separately authorized. No Open VSX credential may be added merely because
   Marketplace publication is approved.
 - **No unsupported publishing claim.** TokenGauge makes no Marketplace,
-  Open VSX, or automated publishing claim that the workflow does not actually
-  satisfy.
+  Open VSX, OIDC-based Marketplace, or automated publishing claim that the
+  workflow does not actually satisfy.
 - **Best-effort reproducibility.** The workflow performs a best-effort
   reproducibility check; unexplained drift fails the workflow, while documented
-  exception categories (such as timestamps or tool metadata) may be allowed.
+  exception categories, such as timestamps or tool metadata, may be allowed.

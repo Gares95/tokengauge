@@ -1,10 +1,10 @@
 # Privacy Policy
 
 TokenGauge is local-first by design. This document describes exactly what
-TokenGauge does and does not read and how local SecretStorage is used.
+TokenGauge reads, what it stores, and how local SecretStorage is used.
 TokenGauge is **native-only**: it persists no usage data.
 
-## Core posture
+## Short Version
 
 - **No outbound network by default.** TokenGauge itself makes no outbound network
   calls. If you enable the Codex native probe and keep the Codex card visible,
@@ -15,69 +15,92 @@ TokenGauge is **native-only**: it persists no usage data.
 - **No developer-controlled telemetry.** TokenGauge never sends usage,
   diagnostics, or any data to the TokenGauge authors. The MVP ships zero
   telemetry.
-- **No usage persistence.** TokenGauge is native-only and keeps no usage store.
-  It reads native agent status surfaces at display time and persists no usage
-  events; nothing usage-related leaves your machine.
+- **No usage persistence.** TokenGauge keeps no usage store. It reads native
+  agent status surfaces at display time and persists no usage events; nothing
+  usage-related leaves your machine.
+- **No credential access.** TokenGauge asks for no provider API keys and reads
+  no provider credential stores.
+- **No conversation-log ingestion.** TokenGauge reads native status surfaces,
+  not prompts, completions, transcripts, terminal buffers, or agent logs.
 
-## What TokenGauge stores
+## What TokenGauge Reads
 
-TokenGauge is native-only and **persists no usage data**. There is no usage store
-and no usage write chokepoint, because TokenGauge writes no usage-history
-database. Native limit/usage values are read from the agent's own status
-surfaces at display time. The cockpit may keep sanitized display state in
-VS Code webview state while the view is active or restored. TokenGauge does not
-store raw prompts, completions, transcripts, terminal output, raw session IDs, or
-a usage-history database. v1 has no API-key feature; the only persistent data
-TokenGauge stores is a local **install salt** in VS Code SecretStorage, a
-non-credential value used for privacy-preserving redaction/hashing (see below).
+| Surface | When | Data | Storage |
+|---------|------|------|---------|
+| Claude statusLine snapshot | Card visible and configured | Limit windows, reset times, model, context, cost | No usage history |
+| `~/.claude/stats-cache.json` | Card visible | Per-model cost and model details only | No usage history |
+| Codex app-server probe | Probe enabled and card visible | Recognized account-level short and weekly windows | No usage history |
+| VS Code SecretStorage | Activation and redaction setup | One local install salt | Local non-credential value |
+| VS Code webview state | Cockpit active or restored | Sanitized display state | Temporary VS Code webview state |
 
-## What TokenGauge never stores
+The Claude statusLine snapshot is the only source of Claude 5-hour/weekly limit
+windows. `~/.claude/stats-cache.json` never supplies those limit windows.
 
-TokenGauge never persists prompts, completions, source code, file contents,
-terminal output, tool arguments or results, arbitrary environment variables,
-OAuth tokens, cookies, raw transcripts, git remote URLs, or raw filesystem
-paths. For the opt-in Codex probe, TokenGauge may inspect a small allowlisted set
-of process environment metadata (`PATH`, `HOME`, `CODEX_HOME`,
-`XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`,
-`XDG_RUNTIME_DIR`, `LANG`, `LC_ALL`, `LC_CTYPE`, `SHELL`, `USER`, `LOGNAME`,
-`TERM`, `TMPDIR`, `NVM_DIR`, `NVM_BIN`, and on Windows `USERPROFILE`, `PATHEXT`,
-`APPDATA`, `LOCALAPPDATA`) for two purposes: locating your local `codex`
-executable, and passing a bounded environment to the spawned `codex` process so
-your own tool can find its own config and credentials. If `codex` is not on the
-extension host's `PATH`, TokenGauge may run your own shell non-interactively
-(`$SHELL -lc 'command -v codex'`, which sources your shell profile) to resolve
-it. Raw environment values and resolved executable paths are not shown in
-UI/diagnostics and are not persisted as usage data.
+Hiding the Claude card stops Claude statusLine and stats-cache reads. Hiding the
+Codex card stops Codex app-server probes, even if
+`tokenGauge.providers.codex.nativeStatusProbe` remains enabled.
 
-## No log ingestion (native-only)
+## Environment Fields for the Codex Probe
 
-TokenGauge is **native-only**: it reads current session/weekly limit state,
-resets, model, and cost when available from native agent surfaces (the guarded
-Claude statusLine snapshot, the local `stats-cache.json` cost/model cache, and
-the opt-in Codex app-server probe). The statusLine snapshot is the only source
-of Claude 5-hour/weekly limit windows; `~/.claude/stats-cache.json` is read
-whenever the Claude card is visible and supplies per-model cost and model detail
-only, never limit windows. Hiding the Claude card stops Claude statusLine and
-stats-cache reads. Hiding the Codex card stops Codex app-server probes, even if
-`tokenGauge.providers.codex.nativeStatusProbe` remains enabled. **It does not
-read, parse, or scan your agent conversation logs at all.**
+The Codex probe is off by default. When it is enabled and the Codex card is
+visible, TokenGauge may inspect a small allowlisted set of process environment
+metadata.
 
-There is no log-derived token-calculation path, no conversation-log parsing, no
-log-root resolution, no file watchers over agent logs, and no broad-log-root
-scanning. Prompts, completions, tool arguments or results, terminal output, raw
-transcripts, secrets, OAuth tokens, account email, and raw filesystem paths are
-never read.
+| Category | Examples | Use | Handling |
+|----------|----------|-----|----------|
+| Executable lookup | `PATH`, `PATHEXT` | Find local `codex` | Raw values not displayed or persisted |
+| Home/config locations | `HOME`, `CODEX_HOME`, `XDG_*` | Let `codex` find its config | Forwarded only to spawned process |
+| Shell and locale metadata | `SHELL`, `LANG`, `TERM` | Start the process predictably | Raw values not shown in UI or diagnostics |
+| User-name compatibility | `USER`, `LOGNAME` | Preserve normal CLI behavior | Not treated as identity data |
+| Node manager hints | `NVM_DIR`, `NVM_BIN` | Resolve common Node installs | Only forwarded when present |
+
+The explicit allowlist is:
+
+```text
+PATH, HOME, CODEX_HOME, XDG_CONFIG_HOME, XDG_DATA_HOME, XDG_STATE_HOME,
+XDG_CACHE_HOME, XDG_RUNTIME_DIR, LANG, LC_ALL, LC_CTYPE, SHELL, USER, LOGNAME,
+TERM, TMPDIR, NVM_DIR, NVM_BIN, USERPROFILE, PATHEXT, APPDATA, LOCALAPPDATA
+```
+
+If `codex` is not on the extension host's `PATH`, TokenGauge may run your own
+shell non-interactively to resolve it. Login-capable shells such as Bash or Zsh
+use `$SHELL -lc 'command -v codex'`; `sh` and `dash` use `-c` instead. Raw
+environment values and resolved executable paths are not shown in UI or
+diagnostics and are not persisted as usage data.
+
+## What TokenGauge Never Reads or Stores
+
+TokenGauge never persists prompts, completions, source code, source/workspace
+file contents, terminal output, tool arguments or results, arbitrary/raw
+environment variables, OAuth tokens, cookies, raw transcripts, git remote URLs,
+raw native-payload paths, or provider credential files.
+
+It also does not read, parse, or scan agent conversation logs. There is no
+log-derived token-calculation path, conversation-log parsing, log-root
+resolution, file watcher over agent logs, or broad-log-root scanning.
 
 When native limit status is unavailable, the cockpit shows the field as
 **unknown/unavailable** rather than inferring a value from logs.
 
+## What TokenGauge Stores
+
+TokenGauge is native-only and **persists no usage data**. There is no usage store
+and no usage write chokepoint, because TokenGauge writes no usage-history
+database.
+
+The cockpit may keep sanitized display state in VS Code webview state while the
+view is active or restored. That state does not contain raw prompts,
+completions, transcripts, terminal output, raw session IDs, or a usage-history
+database.
+
+v1 has no API-key feature. The only persistent data TokenGauge stores is a local
+**install salt** in VS Code SecretStorage, a non-credential value used for
+privacy-preserving redaction/hashing.
+
 ## SecretStorage
 
-TokenGauge v1 does not ask for API keys. The only value TokenGauge stores in
-VS Code SecretStorage is a local **install salt**: a non-credential random value
-used by the `SecretManager` / `IdHasher` for privacy-preserving redaction and
-hashing. It is never written to `settings.json` or logs, and it is never sent
-anywhere.
+TokenGauge v1 does not ask for API keys. The install salt is never written to
+`settings.json` or logs, and it is never sent anywhere.
 
 Important SecretStorage caveats, stated honestly:
 
@@ -85,17 +108,16 @@ Important SecretStorage caveats, stated honestly:
   salt is kept in the OS-backed SecretStorage of the machine where it was created
   and is not carried by Settings Sync the way `tokenGauge.*` settings are.
 - **TokenGauge does not clear SecretStorage on uninstall.** Uninstalling the
-  extension does not automatically remove the install salt. It is a small
-  non-credential value used only for local hashing/redaction, and you normally do
-  not need to remove it.
+  extension does not automatically remove the install salt. It is a
+  non-credential value used only for local hashing/redaction, and you normally
+  do not need to remove it.
 
 ## Configuring the Claude statusLine integration writes to `~/.claude/settings.json`
 
 TokenGauge's optional native bridge reads a passive local snapshot that
-your own Claude Code statusLine script writes. Setting that up the documented way
-involves **you** configuring Claude Code's statusLine, which **writes to
-`~/.claude/settings.json`** (the `statusLine.command` field). Stated plainly so
-there are no surprises:
+your own Claude Code statusLine script writes. Setting that up the documented
+way involves **you** configuring Claude Code's statusLine, which **writes to
+`~/.claude/settings.json`** (the `statusLine.command` field).
 
 - This change is **user-initiated**. TokenGauge does **not** edit
   `~/.claude/settings.json`, does not run your statusLine command, and does
@@ -133,10 +155,10 @@ for the user-facing details.
 ## Deletion
 
 - TokenGauge stores no API keys, provider credentials, prompts, logs,
-  transcripts, usage history, or raw paths. There is nothing of yours to delete.
-  The only TokenGauge-owned value is the local non-credential install salt
-  described under SecretStorage; it is a small implementation detail you normally
-  do not need to manage.
+  transcripts, usage history, or raw paths.
+- The only TokenGauge-owned persistent value is the local non-credential install
+  salt described under SecretStorage. It is an implementation detail for local
+  hashing/redaction and normally does not need user management.
 
 ## Privacy Report
 
