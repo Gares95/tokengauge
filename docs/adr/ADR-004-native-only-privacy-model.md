@@ -46,6 +46,16 @@ TokenGauge MUST NOT:
 
 Unknown/unavailable is always preferred over reconstruction.
 
+This boundary also applies when a conversation log happens to contain
+provider-reported status fields. A copied status object inside a transcript is
+not the same thing as a bounded native status surface: it is tied to a
+conversation-log file, can be stale relative to the current account state, and
+is surrounded by records that may contain prompts, tool output, repository
+context, and other private data. TokenGauge therefore does not mine conversation
+logs even for fields that look provider-authored. The allowed path is a
+purpose-built local surface with a narrow schema and freshness semantics the
+cockpit can explain.
+
 ## What this removed
 
 The earlier dual architecture was reduced to the native-only model above. The
@@ -79,5 +89,8 @@ Missing cost reads `cost unknown`, never a fabricated `$0.00`.
 - Future improvement effort focuses on **setup / onboarding / doctor flows**
   (helping users wire the statusLine snapshot and the Codex probe), never on log
   parsing or usage reconstruction.
+- If a provider later writes limit fields into additional transcript-like files,
+  those files remain out of scope until there is a bounded, non-transcript native
+  surface with clear freshness behavior.
 - Native-only alerting may be designed later if there is a clear user need; it is
   out of scope for v1.

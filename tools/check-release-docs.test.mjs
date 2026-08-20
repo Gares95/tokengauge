@@ -48,6 +48,11 @@ function cleanDocs() {
       'node --check $writer\n(Resolve-Path $writer).Path\n' +
       'If you intentionally keep a custom shell writer instead.\n',
     'docs/multiple-sessions.md': '# Multiple sessions\n\naccuracy is preserved per account.\n',
+    'docs/adr/ADR-004-native-only-privacy-model.md':
+      '# ADR-004\n\nA conversation log happens to contain provider-reported status fields. ' +
+      'That is not the same thing as a bounded native status surface. ' +
+      'It can be stale relative to the current account state. ' +
+      'TokenGauge does not mine conversation logs even for fields that look provider-authored.\n',
     'README.md':
       '# TokenGauge\n\nSee docs/troubleshooting.md, docs/remote-setups.md, docs/multiple-sessions.md and docs/claude-statusline-writer.md. ' +
       'GitHub Release first distribution. Native multi-agent gauge cockpit for Codex and Claude. ' +
@@ -692,6 +697,20 @@ runFixture(
   },
 );
 
+runFixture(
+  'missing-native-log-boundary-rationale',
+  (docs) => {
+    docs['docs/adr/ADR-004-native-only-privacy-model.md'] = '# ADR-004\n\nNative-only.\n';
+  },
+  (result) => {
+    assert(result.status !== 0, 'ADR without log-boundary rationale should fail');
+    assert(
+      result.output.includes('missing-native-log-boundary-rationale'),
+      'expected missing-native-log-boundary-rationale rule',
+    );
+  },
+);
+
 // Test 2e4 (17-F01): the packaged-link closure gate. The clean fixture carries
 // an approved link with an existing target plus a valid anchor; each closure
 // violation fails with its rule name only.
@@ -766,7 +785,7 @@ runFixture(
 runFixture(
   'packaged-link-target-missing',
   (docs) => {
-    docs['CHANGELOG.md'] += '\nSee [ADR-004](docs/adr/ADR-004-native-only-privacy-model.md).\n';
+    docs['CHANGELOG.md'] += '\nSee [Windows setup](docs/setup/windows.md).\n';
   },
   (result) => {
     assert(result.status !== 0, 'approved link with missing target should fail');
