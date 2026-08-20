@@ -4,15 +4,14 @@ This guide is for **local Windows VS Code**: Claude Code, Node.js, the writer
 script, the snapshot file, and the TokenGauge extension host all run in the
 same local Windows environment. PowerShell is the shell used throughout.
 
-**Evidence note for this guide.** Every writer and inspection command below was
-executed at CLI level in Windows PowerShell 5.1 with Windows Node on NTFS
-(file mode, directory mode, paths with spaces, drive-letter paths with both
-backslashes and forward slashes, replacement of existing snapshots, and
-malformed-input rejection). The complete flow of the **Windows VS Code
-extension host reading the snapshot** is supported by the product contract but
-was **not verified end to end in this remediation**; if the cockpit does not
-pick up a snapshot you verified on disk, use the troubleshooting section and
-Cockpit Diagnostics.
+**Evidence note for this guide.** This setup was smoke-tested with local Windows VS Code,
+local Claude Code, and the canonical Node writer through PowerShell and Git Bash.
+The writer and inspection commands below were also exercised at CLI level in
+Windows PowerShell 5.1 with Windows Node on NTFS (file mode, directory mode,
+paths with spaces, drive-letter paths with both backslashes and forward slashes,
+replacement of existing snapshots, and malformed-input rejection). If the cockpit
+does not pick up a snapshot you verified on disk, use the troubleshooting section
+and Cockpit Diagnostics.
 
 ## Prerequisites
 
@@ -75,7 +74,7 @@ writer path printed by `Resolve-Path`:
 }
 ```
 
-Windows path notes, all exercised at CLI level in this remediation:
+Windows path notes, all exercised at CLI level during setup validation:
 
 - Forward slashes (`C:/Users/...`) and backslashes (`C:\Users\...`) both work
   for the writer's `--file`/`--dir` targets. Forward slashes avoid JSON
@@ -144,7 +143,7 @@ Directory mode is poll-only — updates appear on the next poll (at most about
 Check what Claude Code will run. In PowerShell, single-quoted `node -e`
 programs containing double quotes do **not** survive PowerShell 5.1 argument
 quoting, so use this form (outer double quotes, single quotes inside the
-JavaScript), which was executed and verified in this remediation:
+JavaScript), which was executed and verified during setup validation:
 
 ```powershell
 node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).statusLine?.command ?? ''" "$HOME\.claude\settings.json"
@@ -182,8 +181,7 @@ Static fallback: [Claude live still (PNG)](../images/setup/windows/windows-claud
 ## Shell and platform notes
 
 - This guide is PowerShell-first. Git Bash on Windows can also run the same
-  canonical Node writer, but Git Bash execution was not exercised in this
-  remediation and using it does not add POSIX file permissions or Unix tools
-  to Windows.
-- macOS is not covered by this guide and macOS is not verified in this
-  remediation.
+  canonical Node writer and was smoke-tested with local Windows Claude Code.
+  It still uses the Windows filesystem and does not add POSIX file permissions
+  or Unix filesystem semantics to Windows.
+- macOS is not covered by this guide and has not been verified for this guide.

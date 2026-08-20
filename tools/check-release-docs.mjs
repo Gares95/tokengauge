@@ -435,7 +435,7 @@ for (const file of SETUP_GUIDES) {
       'about 90 seconds',
       'never deletes snapshot files',
       'poll-only',
-      'macOS is not verified',
+      'macOS is not covered',
     ],
     'missing-guide-truth-markers',
   );
@@ -460,7 +460,7 @@ for (const file of SETUP_GUIDES) {
 if (docs['docs/setup/windows.md'] !== undefined) {
   requirePhrases(
     'docs/setup/windows.md',
-    ['not verified end to end in this remediation'],
+    ['smoke-tested with local Windows VS Code', 'PowerShell and Git Bash'],
     'missing-windows-evidence-narrowing',
   );
 }

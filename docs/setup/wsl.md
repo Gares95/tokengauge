@@ -5,15 +5,11 @@ Windows, but the workspace — and normally the TokenGauge extension host — ru
 inside the WSL distro. Claude Code, Node.js, the writer, the snapshot, and the
 TokenGauge extension host should all be inside the **same WSL environment**.
 
-**Evidence note for this guide.** The WSL extension-host side of this setup —
-the canonical writer plus TokenGauge's live snapshot readers, in both file and
-directory modes, on the WSL Linux filesystem — was executed end to end in a
-WSL2 environment in this remediation (a WSL2 distro on ext4; native
-non-WSL Linux distributions were not separately exercised and path handling
-there is designed to be portable). The Windows-side VS Code **client** UI half
-of the Remote WSL topology is described here but was not separately driven;
-what matters for reading snapshots is the extension host, and that is the part
-executed.
+**Evidence note for this guide.** This Remote WSL setup was smoke-tested end to
+end in a WSL2 environment: WSL-side Claude Code, WSL Node, the canonical writer,
+and TokenGauge's live snapshot readers in both file and directory modes on the
+WSL Linux filesystem. Native non-WSL Linux distributions were not separately
+exercised; path handling is designed to be portable.
 
 ## Where things run
 
@@ -142,14 +138,14 @@ never deletes snapshot files. Filenames are derived from hashed identifiers —
 no raw session or workspace value appears on disk. Directory mode is
 poll-only — updates appear on the next poll (at most about 15 seconds), while
 single-file mode also watches the exact configured file. Both modes were
-executed against the live readers in WSL in this remediation.
+executed against the live readers during WSL setup validation.
 
 ## Filesystem placement and `/mnt/<drive>` caveat
 
 Keep the writer and the snapshot on the WSL Linux filesystem
 (`/home/YOUR_USER/...`). Paths under `/mnt/c/...` (the mounted Windows drive)
 are visible from WSL and may work, but they are **not the recommended
-location** and were not exercised in this remediation: the 9P mount has
+location** and were not exercised during setup validation: the 9P mount has
 different permission semantics, and file modification times drive the
 directory-mode ~90-second activity window, so cross-boundary timestamp
 behavior can shift freshness judgments. The same visibility rule also means a
@@ -169,8 +165,7 @@ Windows VS Code window cannot be assumed to read it; for local Windows use the
   **TokenGauge: Cockpit Diagnostics** and check for
   `statusline_snapshot_missing_rate_limits` — Claude Code did not report
   limit fields in that sample; this is not a path problem.
-- macOS is not covered by this guide and macOS is not verified in this
-  remediation.
+- macOS is not covered by this guide and has not been verified for this guide.
 
 ## Optional: enabling the Codex probe
 

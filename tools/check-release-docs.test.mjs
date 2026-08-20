@@ -426,12 +426,12 @@ function cleanGuide(extensionHostLine) {
     'it considers up to 32 hash-named snapshot files, treats files rewritten within ' +
     'about 90 seconds as active, and never deletes snapshot files. Directory mode is poll-only. ' +
     'Pass --file for a single snapshot or --dir for a per-session directory. ' +
-    `${extensionHostLine} macOS is not verified in this remediation.\n`
+    `${extensionHostLine} macOS is not covered by this guide.\n`
   );
 }
 function cleanGuides(docs) {
   docs['docs/setup/windows.md'] = cleanGuide(
-    'The Windows extension-host flow was not verified end to end in this remediation.',
+    'This setup was smoke-tested with local Windows VS Code through PowerShell and Git Bash.',
   );
   docs['docs/setup/wsl.md'] = cleanGuide(
     'The configured snapshot path must be visible to the extension host that reads it.',
@@ -455,12 +455,12 @@ runGuideFixture('guides-clean', null, (result) => {
 });
 
 runGuideFixture(
-  'guide-windows-tested-overclaim',
+  'guide-cross-platform-overclaim',
   (docs) => {
-    docs['docs/setup/windows.md'] += 'Windows was tested end to end in this remediation.\n';
+    docs['docs/setup/windows.md'] += 'This setup is cross-platform verified.\n';
   },
   (result) => {
-    assert(result.status !== 0, 'Windows end-to-end overclaim should fail');
+    assert(result.status !== 0, 'cross-platform overclaim should fail');
     assert(result.output.includes('stale-guide-claim'), 'expected stale-guide-claim rule');
   },
 );
@@ -545,7 +545,7 @@ runGuideFixture(
   'guide-windows-narrowing-removed',
   (docs) => {
     docs['docs/setup/windows.md'] = docs['docs/setup/windows.md'].replace(
-      'was not verified end to end in this remediation',
+      'smoke-tested with local Windows VS Code',
       'works everywhere',
     );
   },
