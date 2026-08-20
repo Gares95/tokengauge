@@ -22,11 +22,6 @@ and Cockpit Diagnostics.
 - VS Code with TokenGauge installed, running as a local window (not a
   Remote/WSL window — for WSL, use the [Remote WSL guide](wsl.md)).
 
-> **Visual walkthrough note:** these captures illustrate the setup flow, but
-> some frames show an earlier writer version. Do not copy code or commands
-> from the images or animations. Use the current commands and writer blocks
-> in this guide and the README.
-
 ## 1. Create the writer
 
 > **Fastest route:** run **TokenGauge: Set Up Claude statusLine** from the VS Code
@@ -49,15 +44,6 @@ To create the writer by hand on Windows, copy that block, then follow the
 `$HOME\.tokengauge\claude\claude-statusline-writer.mjs`, validates it with
 `node --check $writer`, and prints the absolute path with
 `(Resolve-Path $writer).Path`.
-
-<details>
-<summary>Animation: creating and validating the writer in PowerShell (illustrative)</summary>
-
-![Illustrative animation of creating the Claude statusLine writer from the README block in Windows PowerShell; some frames show an earlier writer version, so use the current README block instead of copying from the frames](../images/setup/windows/windows-claude-create-writer.webp)
-
-Static fallback: [create-writer still (PNG)](../images/setup/windows/windows-claude-create-writer.png).
-
-</details>
 
 ## 2. Wire Claude Code's statusLine command
 
@@ -88,30 +74,12 @@ Windows path notes, all exercised at CLI level during setup validation:
   POSIX feature, and Windows ACLs are not modified by the writer — this is
   designed behavior, not a POSIX permission guarantee.
 
-<details>
-<summary>Animation: editing settings.json (illustrative)</summary>
-
-![Illustrative animation of merging the statusLine command into the Windows Claude Code settings.json; the command form shown in some frames is an earlier argument-less version — use the --file or --dir command printed in this guide](../images/setup/windows/windows-claude-statusline-settings.webp)
-
-Static fallback: [statusLine settings still (PNG)](../images/setup/windows/windows-claude-statusline-settings.png).
-
-</details>
-
 ## 3. Point TokenGauge at the snapshot
 
 Set `tokenGauge.claude.statuslineSnapshotPath` (User settings in a local
 window) to the snapshot **output** path, for example
 `C:/Users/YOUR_USER/.tokengauge/claude/statusline-snapshot.json` — the JSON
 the writer produces, not the writer script itself.
-
-<details>
-<summary>Animation: setting the snapshot path (illustrative)</summary>
-
-![Illustrative animation of setting tokenGauge.claude.statuslineSnapshotPath in the Settings UI; the terminal visible in some frames shows an earlier writer session — the settings steps themselves are current](../images/setup/windows/windows-claude-snapshot-path.webp)
-
-Static fallback: [snapshot path still (PNG)](../images/setup/windows/windows-claude-snapshot-path.png).
-
-</details>
 
 ## Directory mode (multiple Claude sessions)
 
@@ -153,15 +121,6 @@ It prints the configured `statusLine.command` only — a structural inspection
 that never dumps the rest of your settings. After the next Claude Code
 response, confirm the snapshot file (or a hash-named file in the snapshot
 directory) exists and has a recent modification time.
-
-<details>
-<summary>Animation: the Claude card going live (illustrative)</summary>
-
-![Illustrative animation of the TokenGauge Claude card turning Live after the snapshot is configured; the statusLine command visible in some frames is an earlier argument-less form — use the --file or --dir command from this guide](../images/setup/windows/windows-claude-live.webp)
-
-Static fallback: [Claude live still (PNG)](../images/setup/windows/windows-claude-live.png).
-
-</details>
 
 ## Troubleshooting
 

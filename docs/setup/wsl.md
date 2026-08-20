@@ -29,11 +29,6 @@ Inside WSL, use the **Linux** Node installed in the distro (`node --version`
 inside a WSL terminal), not Windows Node: Claude Code runs the writer inside
 WSL, so the writer must run with WSL's own Node.
 
-> **Visual walkthrough note:** these captures illustrate the setup flow, but
-> some frames show an earlier writer version. Do not copy code or commands
-> from the images or animations. Use the current commands and writer blocks
-> in this guide and the README.
-
 ## 1. Create the writer (inside WSL)
 
 > **Fastest route:** run **TokenGauge: Set Up Claude statusLine** from the VS Code
@@ -51,15 +46,6 @@ terminal. It creates `~/.tokengauge/claude/claude-statusline-writer.mjs`,
 validates it with `node --check`, and prints the absolute path with `realpath`.
 That block is the tested source of the writer body; this guide intentionally does
 not carry a second copy of it.
-
-<details>
-<summary>Animation: creating and validating the writer inside WSL (illustrative)</summary>
-
-![Illustrative animation of creating the Claude statusLine writer from the README block inside WSL; some frames show an earlier writer version, so use the current README block instead of copying from the frames](../images/setup/wsl/wsl-claude-create-writer.webp)
-
-Static fallback: [create-writer still (PNG)](../images/setup/wsl/wsl-claude-create-writer.png).
-
-</details>
 
 ## 2. Wire Claude Code's statusLine command (WSL settings)
 
@@ -81,15 +67,6 @@ Verify what Claude Code will run with the same Node one-liner the README uses
 node -e 'const fs=require("node:fs"); const s=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); console.log(s.statusLine?.command ?? "")' ~/.claude/settings.json
 ```
 
-<details>
-<summary>Animation: editing the WSL settings.json (illustrative)</summary>
-
-![Illustrative animation of merging the statusLine command into the WSL-side Claude Code settings.json; the command form shown in some frames is an earlier argument-less version — use the --file or --dir command printed in this guide](../images/setup/wsl/wsl-claude-statusline-settings.webp)
-
-Static fallback: [statusLine settings still (PNG)](../images/setup/wsl/wsl-claude-statusline-settings.png).
-
-</details>
-
 ## 3. Point TokenGauge at the snapshot (Remote settings)
 
 **TokenGauge: Set Up Claude statusLine** sets this for you when you run it from
@@ -105,24 +82,6 @@ not which tab is called "User". A Remote WSL window reads WSL-side settings, so
 the **local Windows** User settings you see on the desktop may not affect it;
 this scope split is normal VS Code behavior (use **Preferences: Open Remote
 Settings (JSON)**).
-
-<details>
-<summary>Animation: setting the snapshot path in Remote settings (illustrative)</summary>
-
-![Illustrative animation of setting tokenGauge.claude.statuslineSnapshotPath in the Remote WSL Settings UI using the Configure snapshot path button; the terminal visible in some frames shows an earlier writer session — the settings steps themselves are current](../images/setup/wsl/wsl-claude-snapshot-path.webp)
-
-Static fallback: [snapshot path still (PNG)](../images/setup/wsl/wsl-claude-snapshot-path.png).
-
-</details>
-
-<details>
-<summary>Animation: the Claude card going live in a Remote WSL window</summary>
-
-![Animation of the TokenGauge Claude card turning Live in a Remote WSL window after the snapshot is configured](../images/setup/wsl/wsl-claude-live.webp)
-
-Static fallback: [Claude live still (PNG)](../images/setup/wsl/wsl-claude-live.png).
-
-</details>
 
 ## Directory mode (multiple Claude sessions)
 
@@ -166,18 +125,3 @@ Windows VS Code window cannot be assumed to read it; for local Windows use the
   `statusline_snapshot_missing_rate_limits` — Claude Code did not report
   limit fields in that sample; this is not a path problem.
 - macOS is not covered by this guide and has not been verified for this guide.
-
-## Optional: enabling the Codex probe
-
-The Codex card uses an explicit opt-in probe (off by default; see the README
-Codex section for the current steps). This capture, recorded in a Remote WSL
-window, shows what enabling it looks like:
-
-<details>
-<summary>Animation: enabling the Codex native status probe</summary>
-
-![Animation of opening the Codex probe setting from the cockpit and enabling the opt-in Codex native status probe in a Remote WSL window](../images/setup/shared/codex-enable-probe.webp)
-
-Static fallback: [Codex probe still (PNG)](../images/setup/shared/codex-enable-probe.png).
-
-</details>
