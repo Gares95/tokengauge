@@ -6,7 +6,7 @@ to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ## [Unreleased]
 
-## [0.0.4] - 2026-08-20
+## [0.0.4] - 2026-08-21
 
 ### Added
 
@@ -43,6 +43,9 @@ to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ### Migration notes
 
+- Visual Studio Marketplace users upgrade from 0.0.2 straight to 0.0.4, because
+  0.0.3 was published as a GitHub release only. The 0.0.3 notes below describe
+  changes you also receive in this update.
 - If you copied an older TokenGauge statusLine writer, refresh it before using
   v0.0.4. Run **TokenGauge: Set Up Claude statusLine** again, or replace your
   local writer with the current copy from
