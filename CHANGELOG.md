@@ -4,7 +4,63 @@ All notable changes to TokenGauge will be documented here. This project adheres
 to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 0.0.3
+## [Unreleased]
+
+## [0.0.4] - 2026-08-21
+
+### Added
+
+- Added **TokenGauge: Set Up Claude statusLine**, which writes the canonical
+  Node statusLine writer, validates it, configures TokenGauge's snapshot path,
+  and shows the exact Claude Code `statusLine.command` JSON to paste. TokenGauge
+  still does not edit `~/.claude/settings.json`.
+- Added a compact terminal statusLine readout from the canonical writer, so the
+  same setup that feeds the cockpit can also show the provider-reported 5h and
+  weekly windows in Claude Code's terminal status line.
+- Added setup guidance for Windows and WSL workflows while keeping the README as
+  the concise setup authority.
+
+### Changed
+
+- Moved the canonical statusLine writer body into
+  `docs/claude-statusline-writer.md` and kept it byte-identical to the shipped
+  writer asset.
+- Clarified native-source freshness, multiple-writer behavior, missing
+  `rate_limits` states, and why TokenGauge uses local native surfaces rather
+  than provider credentials or conversation logs.
+- Reworked README, troubleshooting, SECURITY, and PRIVACY guidance for cleaner
+  public onboarding and reader-first privacy/security reporting.
+
+### Fixed
+
+- The status bar now shows Codex's promoted weekly-only window when the local
+  app-server reports weekly usage without a short window.
+- The setup command now reports writer, validation, and settings-scope failures
+  more directly.
+- Release-documentation checks now protect the canonical writer location,
+  freshness caveats, setup claims, packaged-link posture, and public-clean
+  documentation boundaries.
+
+### Migration notes
+
+- Visual Studio Marketplace users upgrade from 0.0.2 straight to 0.0.4, because
+  0.0.3 was published as a GitHub release only. The 0.0.3 notes below describe
+  changes you also receive in this update.
+- If you copied an older TokenGauge statusLine writer, refresh it before using
+  v0.0.4. Run **TokenGauge: Set Up Claude statusLine** again, or replace your
+  local writer with the current copy from
+  [docs/claude-statusline-writer.md](docs/claude-statusline-writer.md).
+- Review and merge the displayed `statusLine.command` into
+  `~/.claude/settings.json` yourself. TokenGauge does not edit that file.
+- The TokenGauge snapshot setting should point to the JSON snapshot file or
+  per-session snapshot directory, not to the writer script.
+
+### Security and maintenance
+
+- Current full npm audit: zero vulnerabilities.
+- Current production npm audit: zero vulnerabilities.
+
+## [0.0.3] - 2026-08-08
 
 ### Fixed
 
@@ -30,7 +86,7 @@ to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 - Current full npm audit: zero vulnerabilities.
 - Current production npm audit: zero vulnerabilities.
 
-## 0.0.2
+## [0.0.2] - 2026-07-16
 
 ### Added
 
@@ -56,7 +112,7 @@ to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 - Current open Dependabot alerts: zero.
 - Current dismissed Dependabot alerts: zero.
 
-## 0.0.1
+## [0.0.1] - 2026-07-15
 
 First release line: a **native-only, privacy-first** multi-agent gauge cockpit.
 
@@ -96,3 +152,9 @@ Internal cleanup (native-only reset):
   inert threshold-notification settings. Each removal is protected by a negative
   CI guard. None of these were ever shipped as product features. See
   [ADR-004](docs/adr/ADR-004-native-only-privacy-model.md).
+
+[Unreleased]: https://github.com/Gares95/tokengauge/compare/v0.0.4...HEAD
+[0.0.4]: https://github.com/Gares95/tokengauge/compare/v0.0.3...v0.0.4
+[0.0.3]: https://github.com/Gares95/tokengauge/compare/v0.0.2...v0.0.3
+[0.0.2]: https://github.com/Gares95/tokengauge/compare/v0.0.1...v0.0.2
+[0.0.1]: https://github.com/Gares95/tokengauge/releases/tag/v0.0.1
