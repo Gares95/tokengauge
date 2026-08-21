@@ -84,6 +84,9 @@ body:
     id: diagnostics
     attributes:
       label: Redacted diagnostics (optional)
-      description: Output from **TokenGauge: Cockpit Diagnostics** is already redacted (statuses, rule IDs, source kinds). Double-check it for anything sensitive before pasting.
+      description: >-
+        Output from **TokenGauge: Cockpit Diagnostics** is already redacted
+        (statuses, rule IDs, source kinds). Double-check it for anything
+        sensitive before pasting.
     validations:
       required: false
