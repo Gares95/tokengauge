@@ -66,6 +66,11 @@
         "command": "tokenGauge.cockpitDiagnostics",
         "title": "Cockpit Diagnostics",
         "category": "TokenGauge"
+      },
+      {
+        "command": "tokenGauge.runNativeSourceDoctor",
+        "title": "Run Source Doctor",
+        "category": "TokenGauge"
       }
     ],
     "viewsContainers": {

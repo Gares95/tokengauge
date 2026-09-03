@@ -13,6 +13,7 @@
 
 import * as assert from 'node:assert/strict';
 import * as vscode from 'vscode';
+import { runNativeSourceDoctor } from '../../src/commands/nativeSourceDoctor';
 import { runOpenPrivacyReport } from '../../src/commands/openPrivacyReport';
 
 const EXTENSION_ID = 'gares-extensions.tokengauge-vscode';
@@ -24,7 +25,7 @@ const RAW_LEAK_NEEDLES = [
   'fixture-session',
 ];
 
-const COMMAND_IDS = ['tokenGauge.openPrivacyReport'] as const;
+const COMMAND_IDS = ['tokenGauge.openPrivacyReport', 'tokenGauge.runNativeSourceDoctor'] as const;
 
 function assertNoLeak(value: unknown): void {
   const serialized = JSON.stringify(value);
@@ -64,5 +65,37 @@ suite('Command palette', () => {
     assert.ok(rendered);
     assert.ok(!report.body.includes('/home/dev/private'));
     assertNoLeak(report);
+  });
+
+  test('Run Source Doctor renders a sanitized setup health report', async () => {
+    let rendered = false;
+    const result = await runNativeSourceDoctor({
+      buildReport: () => ({
+        generatedAtMs: Date.parse('2026-09-03T12:00:00.000Z'),
+        host: { remoteKind: 'local', codexProbeScope: 'default' },
+        providers: [
+          {
+            provider: 'codex',
+            displayName: 'Codex',
+            visible: true,
+            findings: [
+              {
+                ruleId: 'doctor_codex_probe_disabled',
+                severity: 'info',
+                title: 'Codex native probe is off',
+                message: 'The explicit probe setting is disabled.',
+              },
+            ],
+          },
+        ],
+      }),
+      renderReport: async () => {
+        rendered = true;
+      },
+    });
+
+    assert.equal(result.commandId, 'tokenGauge.runNativeSourceDoctor');
+    assert.ok(rendered);
+    assertNoLeak(result);
   });
 });

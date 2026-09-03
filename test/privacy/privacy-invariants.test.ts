@@ -19,6 +19,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DiagnosticsService } from '../../src/core/diagnostics/DiagnosticsService';
 import { PrivacyViolationError } from '../../src/core/diagnostics/errors';
+import { renderNativeSourceDoctorReport } from '../../src/core/sourceDoctor/renderNativeSourceDoctorReport';
 import { redactSerializable, redactString } from '../../src/security/Redactor';
 import { PRIVACY_SENTINELS, type PrivacySentinelKind } from '../fixtures/privacy/sentinels';
 
@@ -87,6 +88,45 @@ suite('Privacy invariant: Redactor.redactSerializable export-shaped payloads', (
       const redacted = redactString(`prefix ${PRIVACY_SENTINELS[kind]} suffix`);
       assertSentinelAbsent(redacted, kind);
       assert.match(redacted, /\[redacted:[a-z0-9-]+\]/i);
+    }
+  });
+});
+
+suite('Privacy invariant: Native Source Doctor report rendering', () => {
+  test('Doctor report redacts every sentinel category before display', () => {
+    const rendered = renderNativeSourceDoctorReport({
+      generatedAtMs: Date.parse('2026-09-03T12:00:00.000Z'),
+      host: {
+        remoteKind: 'remote',
+        remoteLabel: PRIVACY_SENTINELS.fakeWindowsPath,
+        codexProbeScope: 'workspace',
+      },
+      providers: [
+        {
+          provider: 'claude',
+          displayName: `Claude ${PRIVACY_SENTINELS.fakeGitRemote}`,
+          visible: true,
+          findings: [
+            {
+              ruleId: 'doctor_claude_snapshot_parse_failed',
+              severity: 'blocked',
+              title: PRIVACY_SENTINELS.fakeApiKey,
+              message: PRIVACY_SENTINELS.fakeOAuthBearer,
+              action: PRIVACY_SENTINELS.fakePosixPath,
+              facts: [
+                { name: 'prompt-like', value: PRIVACY_SENTINELS.fakePrompt },
+                { name: 'source-like', value: PRIVACY_SENTINELS.fakeSource },
+                { name: 'cookie-like', value: PRIVACY_SENTINELS.fakeCookie },
+                { name: 'env-like', value: PRIVACY_SENTINELS.fakeEnvVar },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    for (const kind of SENTINEL_KINDS) {
+      assertSentinelAbsent(rendered.body, kind);
     }
   });
 });

@@ -16,6 +16,7 @@ import type { TokenGaugeTestApi } from '../../src/extension';
 
 const EXTENSION_ID = 'gares-extensions.tokengauge-vscode';
 const CONFIGURE_COCKPIT_COMMAND = 'tokenGauge.configureCockpit';
+const RUN_NATIVE_SOURCE_DOCTOR_COMMAND = 'tokenGauge.runNativeSourceDoctor';
 
 // The privacy-sensitive defaults that must remain untouched after invocation.
 const PRIVACY_SETTINGS: readonly { key: string; expected: unknown }[] = [
@@ -43,6 +44,10 @@ suite('Configure Cockpit command', () => {
     assert.ok(
       registered.includes(CONFIGURE_COCKPIT_COMMAND),
       `command not registered: ${CONFIGURE_COCKPIT_COMMAND}`,
+    );
+    assert.ok(
+      registered.includes(RUN_NATIVE_SOURCE_DOCTOR_COMMAND),
+      `command not registered: ${RUN_NATIVE_SOURCE_DOCTOR_COMMAND}`,
     );
   });
 

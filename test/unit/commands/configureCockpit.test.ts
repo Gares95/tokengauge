@@ -29,6 +29,7 @@ import {
   remoteSettingsScopeMessage,
   runConfigureCockpit,
 } from '../../../src/commands/configureCockpit';
+import { RUN_NATIVE_SOURCE_DOCTOR_COMMAND } from '../../../src/commands/nativeSourceDoctor';
 import { findRepoRoot } from '../../_helpers/repoRoot';
 
 interface ManifestCommand {
@@ -265,6 +266,29 @@ suite('Configure Cockpit command', () => {
     assert.deepEqual(calls, [{ command: 'tokenGauge.cockpitDiagnostics', args: [] }]);
   });
 
+  test('Run Source Doctor executes the Native Source Doctor command and writes nothing', async () => {
+    const doctorOption = CONFIGURE_COCKPIT_OPTIONS.find(
+      (o) => o.kind === 'command' && o.commandId === RUN_NATIVE_SOURCE_DOCTOR_COMMAND,
+    );
+    assert.ok(doctorOption, 'Run Source Doctor option must exist');
+    assert.equal(doctorOption.label, 'Run Source Doctor');
+    const calls: { command: string; args: unknown[] }[] = [];
+    const result = await runConfigureCockpit({
+      executeCommand: async (command, ...args) => {
+        calls.push({ command, args });
+        if (/updateConfiguration|configuration\.update/i.test(command)) {
+          assert.fail('Run Source Doctor must never write a setting value');
+        }
+        return undefined;
+      },
+      showActionPick: async () => doctorOption.label,
+    });
+
+    assert.equal(result.invokedCommand, RUN_NATIVE_SOURCE_DOCTOR_COMMAND);
+    assert.equal(result.openedSettings, false);
+    assert.deepEqual(calls, [{ command: RUN_NATIVE_SOURCE_DOCTOR_COMMAND, args: [] }]);
+  });
+
   // CRITICAL read-only constraint (hard_constraints): invoking the command and
   // selecting ANY option (or cancelling) must NOT mutate any tokenGauge.* value.
   // The dependency surface has no settings-writer at all.
@@ -361,6 +385,7 @@ suite('Configure Cockpit command', () => {
         'Claude settings',
         'Codex settings',
         'Open all TokenGauge settings',
+        'Run Source Doctor',
         'Run Diagnostics',
         'Learn what TokenGauge reads & stores',
       ],

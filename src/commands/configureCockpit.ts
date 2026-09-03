@@ -28,6 +28,7 @@
 // booting VS Code.
 
 import * as vscode from 'vscode';
+import { RUN_NATIVE_SOURCE_DOCTOR_COMMAND } from './nativeSourceDoctor';
 
 export const CONFIGURE_COCKPIT_COMMAND = 'tokenGauge.configureCockpit' as const;
 
@@ -95,6 +96,12 @@ export const CONFIGURE_COCKPIT_OPTIONS: readonly ConfigureCockpitOption[] = [
     label: 'Open all TokenGauge settings',
     detail: 'Opens VS Code Settings filtered to TokenGauge. Nothing is changed for you.',
     query: COCKPIT_SETTINGS_QUERY,
+  },
+  {
+    kind: 'command',
+    label: 'Run Source Doctor',
+    detail: 'Open the read-only Native Source Doctor report for setup health and next actions.',
+    commandId: RUN_NATIVE_SOURCE_DOCTOR_COMMAND,
   },
   {
     kind: 'command',

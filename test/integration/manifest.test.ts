@@ -60,6 +60,7 @@ const PRIMARY_COMMANDS = [
   'tokenGauge.refreshNativeStatus',
   'tokenGauge.configureCockpit',
   'tokenGauge.cockpitDiagnostics',
+  'tokenGauge.runNativeSourceDoctor',
   // The one-command Claude setup. It writes the writer and our snapshot-path
   // setting, then shows the user the line to paste; it never writes
   // ~/.claude/settings.json.

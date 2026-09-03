@@ -32,6 +32,7 @@ TokenGauge is **native-only**: it persists no usage data.
 | Codex app-server probe | Probe enabled and card visible | Recognized account-level short and weekly windows | No usage history |
 | VS Code SecretStorage | Activation and redaction setup | One local install salt | Local non-credential value |
 | VS Code webview state | Cockpit active or restored | Sanitized display state | Temporary VS Code webview state |
+| Native Source Doctor | Only when you run the command | Sanitized setup categories, rule IDs, booleans, and next actions | No usage history |
 
 The Claude statusLine snapshot is the only source of Claude 5-hour/weekly limit
 windows. `~/.claude/stats-cache.json` never supplies those limit windows.
@@ -39,6 +40,23 @@ windows. `~/.claude/stats-cache.json` never supplies those limit windows.
 Hiding the Claude card stops Claude statusLine and stats-cache reads. Hiding the
 Codex card stops Codex app-server probes, even if
 `tokenGauge.providers.codex.nativeStatusProbe` remains enabled.
+
+## Native Source Doctor
+
+The **TokenGauge: Run Source Doctor** command is a local, readonly setup-health
+report for provider cards that are unavailable, stale, blocked, or incomplete.
+It may check the same configured Claude statusLine snapshot, per-session
+snapshot directory, and stats-cache surfaces that the visible Claude card can
+read. For Codex, it reports existing sanitized probe and retention state from
+the extension host; running the Doctor does not run a new Codex app-server probe
+by itself.
+
+Doctor output is sanitized. It reports rule IDs, booleans, counts, categories,
+settings-scope labels, closed probe-stage labels, and next-action copy. It does
+not show raw paths, prompts, logs, credentials, provider payloads, account
+identifiers, terminal output, transcripts, or secret values. It does not write
+settings, enable providers, repair configuration automatically, synthesize
+usage, or make network calls.
 
 ## Environment Fields for the Codex Probe
 
