@@ -13,7 +13,7 @@ suite('Native Source Doctor — renderer', () => {
   test('Renders the expected readonly sections and next actions', () => {
     const rendered = renderNativeSourceDoctorReport({
       generatedAtMs: Date.parse('2026-09-03T12:00:00.000Z'),
-      host: { remoteKind: 'local', codexProbeScope: 'user' },
+      host: { remoteKind: 'local', claudeSnapshotScope: 'workspace', codexProbeScope: 'user' },
       providers: [
         {
           provider: 'claude',
@@ -37,6 +37,8 @@ suite('Native Source Doctor — renderer', () => {
     assert.match(rendered.body, /## Extension host and settings scope/);
     assert.match(rendered.body, /## Provider visibility and checks/);
     assert.match(rendered.body, /## Recommended next actions/);
+    assert.match(rendered.body, /Claude snapshot effective scope: workspace/);
+    assert.match(rendered.body, /Codex probe effective scope: user/);
     assert.match(rendered.body, /readonly, local-only, no settings writes/);
   });
 
@@ -46,6 +48,7 @@ suite('Native Source Doctor — renderer', () => {
       host: {
         remoteKind: 'remote',
         remoteLabel: PRIVACY_SENTINELS.fakePosixPath,
+        claudeSnapshotScope: 'workspace',
         codexProbeScope: 'workspaceFolder',
       },
       providers: [

@@ -99,6 +99,7 @@ suite('Privacy invariant: Native Source Doctor report rendering', () => {
       host: {
         remoteKind: 'remote',
         remoteLabel: PRIVACY_SENTINELS.fakeWindowsPath,
+        claudeSnapshotScope: 'workspaceFolder',
         codexProbeScope: 'workspace',
       },
       providers: [

@@ -8,7 +8,7 @@ import type { NativeSourceDoctorReport } from '../../../src/core/sourceDoctor/ty
 function report(): NativeSourceDoctorReport {
   return {
     generatedAtMs: Date.parse('2026-09-03T12:00:00.000Z'),
-    host: { remoteKind: 'local', codexProbeScope: 'default' },
+    host: { remoteKind: 'local', claudeSnapshotScope: 'default', codexProbeScope: 'default' },
     providers: [
       {
         provider: 'codex',

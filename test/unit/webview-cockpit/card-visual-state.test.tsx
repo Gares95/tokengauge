@@ -223,8 +223,8 @@ suite('cardVisualState — state mapping', () => {
     assert.match(noLimits.msg, /snapshot/i);
     assert.match(noLimits.msg, /rate-limit fields/i);
     assert.match(noLimits.msg, /will not guess/i);
-    assert.equal(noLimits.ctaLabel, 'Open diagnostics');
-    assert.equal(noLimits.action, 'openCockpitDiagnostics');
+    assert.equal(noLimits.ctaLabel, 'Run Source Doctor');
+    assert.equal(noLimits.action, 'openNativeSourceDoctor');
 
     const probeOff = setupCalloutFor(blockedCard('codex_probe_disabled'));
     assert.match(probeOff.msg, /explicit opt-in probe/);
@@ -247,7 +247,7 @@ suite('cardVisualState — state mapping', () => {
         !/not configured/i.test(spec.title) && !/not configured/i.test(spec.msg),
         'a configured-but-unreadable source must not read as unconfigured',
       );
-      assert.match(spec.msg, /Diagnostics/);
+      assert.match(spec.msg, /Source Doctor/);
       assert.equal(spec.action, 'configureCockpit');
     }
   });

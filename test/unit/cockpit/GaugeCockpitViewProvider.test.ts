@@ -459,6 +459,21 @@ suite('GaugeCockpitViewProvider', () => {
     assert.equal(calls[0]?.command, 'tokenGauge.cockpitDiagnostics');
   });
 
+  test('Inbound openNativeSourceDoctor executes the Source Doctor command', () => {
+    const calls: Array<{ command: string; args: readonly unknown[] }> = [];
+    const { view } = resolveProvider({
+      executeCommand: (command, ...args) => {
+        calls.push({ command, args });
+        return Promise.resolve(undefined);
+      },
+    });
+
+    view.webview.fireMessage({ type: 'openNativeSourceDoctor' });
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0]?.command, 'tokenGauge.runNativeSourceDoctor');
+  });
+
   test('Rejected inbound command is recorded instead of escaping as an uncaught error', async () => {
     const diagnostics = new DiagnosticsService();
     const { view } = resolveProvider({

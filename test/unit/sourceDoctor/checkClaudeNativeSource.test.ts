@@ -8,6 +8,7 @@ const hasher = new IdHasher('test-salt-0123456789');
 
 const VALID_SNAPSHOT = {
   source: 'claude_statusline',
+  timestamp: NOW.toISOString(),
   session_id_hash: '7c8f0f43d0f96827',
   workspace_hash: '58844f10d95e5fa7',
   model: { id: 'claude-opus-4-8', display_name: 'Opus 4.8' },
@@ -85,6 +86,63 @@ suite('Native Source Doctor — Claude checks', () => {
       'short, weekly',
     );
   });
+
+  test('Readable single-file snapshot with a fresh writer timestamp reports OK freshness', () => {
+    const report = checkClaudeNativeSource(baseInput());
+    const loaded = report.findings.find(
+      (finding) => finding.ruleId === 'doctor_claude_snapshot_loaded',
+    );
+
+    assert.ok(loaded);
+    assert.equal(loaded.severity, 'ok');
+    assert.deepEqual(
+      loaded.facts?.find((fact) => fact.name === 'snapshot freshness')?.value,
+      'fresh',
+    );
+  });
+
+  test('Readable single-file snapshot with a stale writer timestamp reports warning freshness', () => {
+    const staleTimestamp = new Date(NOW.getTime() - 6 * 60 * 1000).toISOString();
+    const report = checkClaudeNativeSource(
+      baseInput({
+        readFile: () => JSON.stringify({ ...VALID_SNAPSHOT, timestamp: staleTimestamp }),
+      }),
+    );
+    const stale = report.findings.find(
+      (finding) => finding.ruleId === 'doctor_claude_snapshot_stale',
+    );
+
+    assert.ok(stale);
+    assert.equal(stale.severity, 'warning');
+    assert.match(stale.action ?? '', /statusLine writer/i);
+  });
+
+  for (const [name, timestamp] of [
+    ['missing', undefined],
+    ['invalid', 'not-a-date'],
+    ['future', new Date(NOW.getTime() + 60_000).toISOString()],
+  ] as const) {
+    test(`Readable single-file snapshot with ${name} writer timestamp reports unknown freshness`, () => {
+      const snapshot = { ...VALID_SNAPSHOT } as Record<string, unknown>;
+      if (timestamp === undefined) {
+        delete snapshot.timestamp;
+      } else {
+        snapshot.timestamp = timestamp;
+      }
+      const report = checkClaudeNativeSource(
+        baseInput({ readFile: () => JSON.stringify(snapshot) }),
+      );
+      const unknown = report.findings.find(
+        (finding) => finding.ruleId === 'doctor_claude_snapshot_freshness_unknown',
+      );
+
+      assert.ok(unknown);
+      assert.equal(unknown.severity, 'warning');
+      const serialized = JSON.stringify(unknown);
+      assert.equal(serialized.includes(String(timestamp)), false);
+      assert.equal(serialized.includes('/configured/source'), false);
+    });
+  }
 
   test('Snapshot without rate-limit windows remains incomplete, not zero or unlimited', () => {
     const report = checkClaudeNativeSource(

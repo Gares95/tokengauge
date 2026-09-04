@@ -109,6 +109,125 @@ suite('Native Source Doctor — Codex checks', () => {
     );
   });
 
+  test('Fresh valid retained snapshot with no failure reason remains OK', () => {
+    const report = checkCodexNativeSource(
+      input({
+        configuredProbeEnabled: true,
+        effectiveProbeEnabled: true,
+        retention: {
+          probeEnabled: true,
+          hasLastKnownValid: true,
+          lastStepRuleId: 'codex_retention_accepted_fresh',
+          lastAppliedReason: undefined,
+          lastProbeAgeBucketSeconds: 5,
+          freshnessTier: 'fresh',
+          windowUsed: 'weekly',
+          resetAtPresent: true,
+          reducerRejectedLower: false,
+        },
+        lastProbeStage: 'ratelimits_received',
+        lastProbeIoStage: 'response_matched',
+      }),
+    );
+
+    const retained = report.findings.find(
+      (finding) => finding.ruleId === 'doctor_codex_last_known_value',
+    );
+    assert.ok(retained);
+    assert.equal(retained.severity, 'ok');
+  });
+
+  for (const [reason, expectedAction] of [
+    ['codex_probe_timeout', /refresh native status/i],
+    ['codex_probe_temporarily_unavailable', /signed in/i],
+    ['codex_probe_parse_failed_after_valid', /status response changed/i],
+    ['codex_probe_no_data_after_valid', /recognized short or weekly/i],
+  ] as const) {
+    test(`Valid snapshot followed by ${reason} is a warning`, () => {
+      const report = checkCodexNativeSource(
+        input({
+          configuredProbeEnabled: true,
+          effectiveProbeEnabled: true,
+          retention: {
+            probeEnabled: true,
+            hasLastKnownValid: true,
+            lastStepRuleId: 'codex_retention_retained_degraded',
+            lastAppliedReason: reason,
+            lastProbeAgeBucketSeconds: 15,
+            freshnessTier: 'retained',
+            windowUsed: 'session-5h',
+            resetAtPresent: true,
+            reducerRejectedLower: false,
+          },
+          lastProbeStage: 'ratelimits_received',
+          lastProbeIoStage: 'response_matched',
+        }),
+      );
+
+      const degraded = report.findings.find(
+        (finding) => finding.ruleId === 'doctor_codex_probe_degraded',
+      );
+      assert.ok(degraded);
+      assert.equal(degraded.severity, 'warning');
+      assert.match(degraded.action ?? '', expectedAction);
+      assert.equal(JSON.stringify(degraded).includes('62'), false);
+    });
+  }
+
+  test('Stale retained snapshot is a warning', () => {
+    const report = checkCodexNativeSource(
+      input({
+        configuredProbeEnabled: true,
+        effectiveProbeEnabled: true,
+        retention: {
+          probeEnabled: true,
+          hasLastKnownValid: true,
+          lastStepRuleId: 'codex_retention_held_stale',
+          lastAppliedReason: 'codex_probe_stale',
+          lastProbeAgeBucketSeconds: 600,
+          freshnessTier: 'stale',
+          windowUsed: 'both',
+          resetAtPresent: true,
+          reducerRejectedLower: false,
+        },
+        lastProbeStage: 'completed',
+        lastProbeIoStage: 'response_matched',
+      }),
+    );
+
+    const stale = report.findings.find((finding) => finding.ruleId === 'doctor_codex_probe_stale');
+    assert.ok(stale);
+    assert.equal(stale.severity, 'warning');
+  });
+
+  test('Provider summary severity reflects retained degradation', () => {
+    const report = checkCodexNativeSource(
+      input({
+        configuredProbeEnabled: true,
+        effectiveProbeEnabled: true,
+        retention: {
+          probeEnabled: true,
+          hasLastKnownValid: true,
+          lastStepRuleId: 'codex_retention_retained_degraded',
+          lastAppliedReason: 'codex_probe_timeout',
+          lastProbeAgeBucketSeconds: 10,
+          freshnessTier: 'retained',
+          windowUsed: 'both',
+          resetAtPresent: true,
+          reducerRejectedLower: false,
+        },
+        lastProbeStage: 'completed',
+        lastProbeIoStage: 'response_matched',
+      }),
+    );
+
+    assert.ok(report.findings.some((finding) => finding.severity === 'warning'));
+    assert.equal(
+      report.findings.some((finding) => finding.severity === 'blocked'),
+      false,
+    );
+  });
+
   test('Protocol drift is blocked and does not fabricate a window', () => {
     const report = checkCodexNativeSource(
       input({

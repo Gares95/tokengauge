@@ -243,27 +243,11 @@ suite('Configure Cockpit command', () => {
     assert.equal(result.openedSettings, false, 'a routing option must not also open Settings');
   });
 
-  test('Run Diagnostics executes the Cockpit Diagnostics command and writes nothing', async () => {
+  test('Run Diagnostics is not a primary Configure Cockpit action', () => {
     const diagnosticsOption = CONFIGURE_COCKPIT_OPTIONS.find(
       (o) => o.kind === 'command' && o.commandId === 'tokenGauge.cockpitDiagnostics',
     );
-    assert.ok(diagnosticsOption, 'Run Diagnostics option must exist');
-    assert.equal(diagnosticsOption.label, 'Run Diagnostics');
-    const calls: { command: string; args: unknown[] }[] = [];
-    const result = await runConfigureCockpit({
-      executeCommand: async (command, ...args) => {
-        calls.push({ command, args });
-        if (/updateConfiguration|configuration\.update/i.test(command)) {
-          assert.fail('Run Diagnostics must never write a setting value');
-        }
-        return undefined;
-      },
-      showActionPick: async () => diagnosticsOption.label,
-    });
-
-    assert.equal(result.invokedCommand, 'tokenGauge.cockpitDiagnostics');
-    assert.equal(result.openedSettings, false);
-    assert.deepEqual(calls, [{ command: 'tokenGauge.cockpitDiagnostics', args: [] }]);
+    assert.equal(diagnosticsOption, undefined);
   });
 
   test('Run Source Doctor executes the Native Source Doctor command and writes nothing', async () => {
@@ -386,7 +370,6 @@ suite('Configure Cockpit command', () => {
         'Codex settings',
         'Open all TokenGauge settings',
         'Run Source Doctor',
-        'Run Diagnostics',
         'Learn what TokenGauge reads & stores',
       ],
     );
@@ -598,7 +581,7 @@ suite('Configure Cockpit — focused setting deep-links', () => {
     assert.match(openAll.label, /all/i, 'the generic option must read as opening all settings');
   });
 
-  test('All-settings, privacy, and diagnostics surfaces remain reachable', () => {
+  test('All-settings, privacy, and advanced diagnostics surfaces remain reachable', () => {
     const openAll = CONFIGURE_COCKPIT_OPTIONS.find(
       (o) => o.kind === 'settings' && o.query === COCKPIT_SETTINGS_QUERY,
     );
@@ -617,15 +600,18 @@ suite('Configure Cockpit — focused setting deep-links', () => {
     const diagnostics = CONFIGURE_COCKPIT_OPTIONS.find(
       (o) => o.kind === 'command' && o.commandId === 'tokenGauge.cockpitDiagnostics',
     );
-    assert.ok(diagnostics, 'Configure Cockpit must expose Run Diagnostics directly');
-    assert.equal(diagnostics.label, 'Run Diagnostics');
+    assert.equal(
+      diagnostics,
+      undefined,
+      'Cockpit Diagnostics stays palette-only, not primary setup',
+    );
   });
 });
 
 // The Privacy & Data Report is useful but is NOT a
 // cockpit SETUP step. In Configure Cockpit it is DEMOTED — re-labelled to read as
 // a learn option ("Learn what TokenGauge reads & stores"), positioned AFTER the
-// setup-focused options (provider settings, focused/all settings, diagnostics)
+// setup-focused options (provider settings, focused/all settings, Source Doctor)
 // so it never reads as a required setup step. The
 // `tokenGauge.openPrivacyReport` command stays reachable standalone (not deleted).
 suite('Configure Cockpit — Privacy report demoted to a learn option', () => {
@@ -634,7 +620,7 @@ suite('Configure Cockpit — Privacy report demoted to a learn option', () => {
     /claude/i, // Claude settings
     /codex/i, // Codex settings
     /all/i, // Open all TokenGauge settings (focused/all settings)
-    /diagnostics/i, // Run Diagnostics
+    /source doctor/i, // Run Source Doctor
   ];
 
   function privacyReportIndex(): number {
