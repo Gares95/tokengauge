@@ -8,9 +8,13 @@ Thanks for using TokenGauge. Here is how to get help.
   Claude Code statusLine bridge and the opt-in Codex probe), configuration, and
   troubleshooting. [PRIVACY.md](PRIVACY.md) and [ACCURACY.md](ACCURACY.md)
   explain exactly what is read and how each metric is labeled.
-- **Run the built-in diagnostics.** **TokenGauge: Cockpit Diagnostics** produces
-  a bounded, redacted health report. It is the fastest way to see why a card is
-  showing unavailable, stale, or disabled.
+- **Run Source Doctor first.** **TokenGauge: Run Source Doctor** produces a
+  readonly, local setup-health report with sanitized rule IDs, settings scopes,
+  categories, and next actions. It is the normal first step when a card is
+  unavailable, stale, blocked, or incomplete.
+- **Use Cockpit Diagnostics for advanced support.** **TokenGauge: Cockpit
+  Diagnostics** keeps bounded runtime stages, counters, and retention state for
+  deeper investigation after Source Doctor.
 - **Search existing issues** before opening a new one. Someone may have already
   reported it.
 - **Open an issue** using the bug report or feature request template, and please

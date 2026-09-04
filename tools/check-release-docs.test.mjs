@@ -21,7 +21,8 @@ function cleanDocs() {
     // reference material split out of the packaged README: the guidance must
     // still exist, in the document that now carries it.
     'docs/troubleshooting.md':
-      '# Troubleshooting\n\nstrict schema rejects leaky or malformed snapshots. ' +
+      '# Troubleshooting\n\nRun Source Doctor first when a provider card needs setup health. Run TokenGauge: Run Source Doctor without writing settings, reading logs, or running a Codex probe by itself. Cockpit Diagnostics is the advanced support report. ' +
+      'strict schema rejects leaky or malformed snapshots. ' +
       'Point the setting at the snapshot, not the writer script. ' +
       'statusline_snapshot_missing_rate_limits means the snapshot file exists but the ' +
       'Claude card still shows no gauge; that is not a path problem and TokenGauge ' +
@@ -89,6 +90,7 @@ function cleanDocs() {
       '--file C:/Users/YOUR_USER/.tokengauge/claude/statusline-snapshot.json. ' +
       'C:/Users/YOUR_USER/.tokengauge/claude/statusline-snapshot.json. ' +
       'The Configure snapshot path button opens this exact setting. ' +
+      'Run TokenGauge: Run Source Doctor for a readonly provider-neutral setup health report. It does not read logs, write settings, synthesize usage, or run a Codex probe by itself. TokenGauge: Cockpit Diagnostics is a bounded, redacted cockpit health report. ' +
       'In remote windows use Remote settings or Workspace settings; Local User settings may not affect that window. ' +
       'Claude Code must already run in the same environment. If `claude` does not start, fix Claude Code first. ' +
       'Same-host setup is preferred. Cross-host paths can work but are not the recommended setup. ' +
@@ -104,7 +106,9 @@ function cleanDocs() {
     'PRIVACY.md':
       'SecretStorage caveats. Local install salt is a non-credential value. ' +
       'TokenGauge does not clear SecretStorage on uninstall. no outbound network by default.\n' +
+      'TokenGauge: Run Source Doctor is a local, readonly setup-health report. Running the Doctor does not run a new Codex app-server probe by itself. It does not write settings or make network calls.\n' +
       'Inspect with node -e \'const fs=require("node:fs"); const s=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); console.log(s.statusLine?.command ?? "")\' ~/.claude/settings.json\n',
+    'SUPPORT.md': 'Run Source Doctor first. Cockpit Diagnostics is for advanced support.\n',
     'SECURITY.md':
       'Release Workflow Posture. Tag-only trigger. GitHub Environment approval. ' +
       'Publishing credentials remain isolated. Initial Marketplace publication uses ' +
@@ -119,7 +123,7 @@ function cleanDocs() {
       '## Native limitations\n' +
       'No public Anthropic tokenizer. The stats-cache is a cost/model cache. Missing native data ' +
       'reads unavailable.\n',
-    'CHANGELOG.md': `# Changelog\n\n## ${pkgVersion}\n\nMVP release.\n`,
+    'CHANGELOG.md': `# Changelog\n\n## [Unreleased]\n\n### Added\n\n- Added **TokenGauge: Run Source Doctor**, a readonly, local-only setup-health report without reading logs, writing settings, or running a Codex probe by itself.\n\n## [0.0.4]\n\nMVP release.\n\n## ${pkgVersion}\n\nMVP release.\n`,
     'THIRD_PARTY_NOTICES.md': '# Third-Party Notices\n\nBundled runtime components.\n',
     LICENSE: 'Apache-2.0 stub\n',
   };
@@ -292,6 +296,40 @@ runFixture(
     assert(
       result.output.includes('over-detailed-windows-setup'),
       'expected stale scope wording rule',
+    );
+  },
+);
+
+runFixture(
+  'missing-source-doctor-docs',
+  (docs) => {
+    docs['README.md'] = docs['README.md'].replace(
+      'Run TokenGauge: Run Source Doctor for a readonly provider-neutral setup health report. It does not read logs, write settings, synthesize usage, or run a Codex probe by itself. TokenGauge: Cockpit Diagnostics is a bounded, redacted cockpit health report. ',
+      '',
+    );
+  },
+  (result) => {
+    assert(result.status !== 0, 'README without Source Doctor contract should fail');
+    assert(
+      result.output.includes('missing-source-doctor-docs'),
+      'expected Source Doctor docs rule',
+    );
+  },
+);
+
+runFixture(
+  'missing-source-doctor-changelog',
+  (docs) => {
+    docs['CHANGELOG.md'] = docs['CHANGELOG.md'].replace(
+      'TokenGauge: Run Source Doctor',
+      'Troubleshooting',
+    );
+  },
+  (result) => {
+    assert(result.status !== 0, 'CHANGELOG without Source Doctor feature should fail');
+    assert(
+      result.output.includes('missing-source-doctor-changelog'),
+      'expected Source Doctor changelog rule',
     );
   },
 );

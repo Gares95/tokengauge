@@ -53,9 +53,9 @@ function requirePhrases(file, phrases, rule) {
   if (content === undefined) {
     return;
   }
-  const lower = content.toLowerCase();
+  const lower = content.toLowerCase().replace(/\s+/g, ' ');
   for (const phrase of phrases) {
-    if (!lower.includes(phrase.toLowerCase())) {
+    if (!lower.includes(phrase.toLowerCase().replace(/\s+/g, ' '))) {
       fail(rule, file);
       return;
     }
@@ -341,6 +341,74 @@ forbidPhrases(
   ],
   'automatic-claude-settings-edit',
 );
+
+// missing-source-doctor-docs: Source Doctor is the normal setup-health
+// troubleshooting surface, distinct from advanced Cockpit Diagnostics. It must
+// remain read-only, local-only, no-spawn, and no-settings-write in public docs.
+requirePhrases(
+  'README.md',
+  [
+    'TokenGauge: Run Source Doctor',
+    'readonly provider-neutral setup health report',
+    'does not read logs, write settings, synthesize usage, or run a Codex probe by itself',
+    'TokenGauge: Cockpit Diagnostics',
+    'bounded, redacted cockpit health report',
+  ],
+  'missing-source-doctor-docs',
+);
+requirePhrases(
+  'PRIVACY.md',
+  [
+    'TokenGauge: Run Source Doctor',
+    'local, readonly setup-health report',
+    'running the Doctor does not run a new Codex app-server probe by itself',
+    'does not write settings',
+    'make network calls',
+  ],
+  'missing-source-doctor-privacy',
+);
+{
+  const support = read('SUPPORT.md');
+  if (support !== null) {
+    docs['SUPPORT.md'] = support;
+    requirePhrases(
+      'SUPPORT.md',
+      ['Run Source Doctor first', 'Cockpit Diagnostics', 'advanced support'],
+      'missing-source-doctor-support',
+    );
+  }
+}
+{
+  const troubleshooting = read('docs/troubleshooting.md');
+  if (troubleshooting !== null) {
+    docs['docs/troubleshooting.md'] = troubleshooting;
+    requirePhrases(
+      'docs/troubleshooting.md',
+      [
+        'Run Source Doctor',
+        'first when a provider card',
+        'without writing settings, reading logs, or running a Codex probe by itself',
+        'Cockpit Diagnostics',
+        'advanced support report',
+      ],
+      'missing-source-doctor-troubleshooting',
+    );
+  }
+}
+{
+  const unreleased = sectionBetween('CHANGELOG.md', '## [Unreleased]', '## [0.0.4]');
+  const normalized = unreleased.toLowerCase().replace(/\s+/g, ' ');
+  if (
+    !normalized.includes('tokengauge: run source doctor') ||
+    !normalized.includes('readonly') ||
+    !normalized.includes('local-only') ||
+    !normalized.includes('without reading logs') ||
+    !normalized.includes('writing settings') ||
+    !normalized.includes('running a codex probe by itself')
+  ) {
+    fail('missing-source-doctor-changelog', 'CHANGELOG.md');
+  }
+}
 
 // stale-removed-subsystem: README and PRIVACY must not re-market a removed
 // subsystem (log ingestion, JSONL usage store, cost/tokenizer engine, synthetic
