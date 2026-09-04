@@ -278,14 +278,17 @@ read only when the Claude card is visible, as described under [Sources](#sources
    **Codex settings**. Configure Cockpit groups provider setup and card
    visibility together, opens filtered Settings pages, and never changes a value
    for you.
-3. For Claude Code, run **TokenGauge: Set Up Claude statusLine**. It writes the
+3. If a card is unavailable, stale, blocked, or incomplete, run
+   **TokenGauge: Run Source Doctor** for a readonly local setup-health report
+   with sanitized next actions.
+4. For Claude Code, run **TokenGauge: Set Up Claude statusLine**. It writes the
    statusLine writer for you, checks it, points
    `tokenGauge.claude.statuslineSnapshotPath` at the snapshot, and shows you the
    one line to add to your own Claude settings. See
    **[Claude Code setup](#claude-code-setup)** for that step and for the manual
    route, including a per-session snapshot directory (recommended when you run
    several Claude sessions) instead of a single snapshot file.
-4. For Codex, leave `tokenGauge.providers.codex.nativeStatusProbe` off unless
+5. For Codex, leave `tokenGauge.providers.codex.nativeStatusProbe` off unless
    you explicitly opt in. You can turn it on from Configure Cockpit or Settings;
    TokenGauge does not ask for API keys or provider secrets. When the probe is
    enabled and the Codex card is visible, TokenGauge performs a fresh check when
@@ -702,6 +705,10 @@ commands are the primary surface; provider and local-data management commands ar
   **Codex settings** includes the opt-in probe and Codex card visibility.
   Read-only: it shows a picker and opens filtered Settings pages, and never
   changes a value for you.
+- **TokenGauge: Run Source Doctor**: open a readonly provider-neutral setup
+  health report for unavailable, stale, blocked, or incomplete cards. It reports
+  sanitized rule IDs, booleans, categories, and next actions only; it does not
+  read logs, write settings, synthesize usage, or run a Codex probe by itself.
 - **TokenGauge: Cockpit Diagnostics**: bounded, redacted cockpit health report
   (rule ids, booleans, and counts only; never raw paths, ids, or payloads).
 
@@ -852,6 +859,10 @@ category.
 
 Fixes for the states TokenGauge can show: no gauge, a stale value, a probe that
 returns nothing, and the Claude and Codex checks worth running first.
+
+Run **TokenGauge: Run Source Doctor** first when a card is unavailable, stale,
+blocked, or incomplete. It gives a local, sanitized setup-health report without
+requiring logs or credentials.
 
 See **[Troubleshooting](docs/troubleshooting.md)**.
 

@@ -617,6 +617,10 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
         '- Only custom shell writers need executable-bit and LF-line-ending checks.',
         '- In WSL, Remote-SSH, or Dev Container windows, set TokenGauge values in the Remote or Workspace settings for the extension host. Local User settings may not affect this window.',
         '',
+        '## Native Source Doctor',
+        '',
+        '- Run `TokenGauge: Run Source Doctor` for a provider-neutral setup health report with sanitized next actions.',
+        '',
         '## Recorded diagnostics (bounded, counted)',
         '',
         ...(() => {
@@ -730,6 +734,81 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
         remoteName: () => vscode.env.remoteName,
         showInfo: (message) => {
           notifyCommandResult('info', message);
+        },
+      });
+    }),
+    vscode.commands.registerCommand('tokenGauge.runNativeSourceDoctor', async () => {
+      const [
+        { runNativeSourceDoctor },
+        { buildNativeSourceDoctorReportFromHost },
+        { homedir },
+        { join },
+        fs,
+      ] = await Promise.all([
+        import('./commands/nativeSourceDoctor.js'),
+        import('./commands/nativeSourceDoctorReportBuilder.js'),
+        import('node:os'),
+        import('node:path'),
+        import('node:fs'),
+      ]);
+      return runNativeSourceDoctor({
+        buildReport: async () =>
+          buildNativeSourceDoctorReportFromHost({
+            snapshot: () => cfg.snapshot(),
+            getInstallSalt: () => (secretManager as SecretManager).getOrCreateInstallSalt(),
+            remoteName: () => vscode.env.remoteName,
+            inspectClaudeSnapshotScope: () =>
+              vscode.workspace
+                .getConfiguration('tokenGauge')
+                .inspect<string>('claude.statuslineSnapshotPath'),
+            inspectCodexProbeScope: () =>
+              vscode.workspace
+                .getConfiguration('tokenGauge')
+                .inspect<boolean>('providers.codex.nativeStatusProbe'),
+            codexProbeState: () => ({
+              loop: cockpitLoop?.diagnosticsSnapshot(),
+              retention: codexRetentionGate?.diagnosticsSnapshot(),
+              lastProbeStage: cockpitCodexLastProbeStage,
+              lastProbeIoStage: cockpitCodexLastProbeIoStage,
+              sawStderr: cockpitCodexLastProbeSawStderr,
+              stdoutChunks: cockpitCodexLastProbeStdoutChunks,
+              exitBucket: cockpitCodexLastProbeExitBucket,
+              cliResolver: cockpitCodexCliResolver,
+              cliResolverStage: cockpitCodexCliResolverStage,
+            }),
+            now: () => new Date(),
+            homedir,
+            join,
+            readFile: (location) => fs.readFileSync(location, 'utf8'),
+            isDirectory: (location) => {
+              try {
+                return fs.statSync(location).isDirectory();
+              } catch {
+                return false;
+              }
+            },
+            listDir: (location) => fs.readdirSync(location),
+            fileMtimeMs: (location) => {
+              try {
+                return fs.statSync(location).mtimeMs;
+              } catch {
+                return undefined;
+              }
+            },
+            isFile: (location) => {
+              try {
+                return fs.statSync(location).isFile();
+              } catch {
+                return false;
+              }
+            },
+          }),
+        renderReport: async (report) => {
+          const doc = await vscode.workspace.openTextDocument({
+            content: report.body,
+            language: 'markdown',
+          });
+          await vscode.window.showTextDocument(doc, { preview: true });
         },
       });
     }),

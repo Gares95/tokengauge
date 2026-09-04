@@ -148,6 +148,7 @@ function recordingCallbacks(sink: string[]): AgentCardCallbacks {
       sink.push(target !== undefined ? `openSettings:${target}` : 'openSettings'),
     onRefresh: () => sink.push('refresh'),
     onDiagnostics: () => sink.push('diagnostics'),
+    onSourceDoctor: () => sink.push('sourceDoctor'),
   };
 }
 
@@ -252,10 +253,10 @@ suite('AgentCard — header + live meters', () => {
 suite('AgentCard — no-value states render a SetupCallout, never a 0% meter', () => {
   const cases: ReadonlyArray<readonly [CockpitFieldReason, RegExp, string]> = [
     ['statusline_snapshot_not_configured', /Not configured/, 'openClaudeSnapshotPathSetting'],
-    ['statusline_snapshot_missing_rate_limits', /Waiting for limit fields/, 'diagnostics'],
+    ['statusline_snapshot_missing_rate_limits', /Waiting for limit fields/, 'sourceDoctor'],
     ['codex_probe_disabled', /Native probe is off/, 'openSettings:codexProbe'],
     ['codex_cli_not_found', /Codex CLI not found/, 'refresh'],
-    ['codex_probe_no_response', /Native status blocked/, 'diagnostics'],
+    ['codex_probe_no_response', /Native status blocked/, 'sourceDoctor'],
   ];
 
   for (const [reason, titleRe, expectedAction] of cases) {

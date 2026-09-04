@@ -28,6 +28,7 @@
 // booting VS Code.
 
 import * as vscode from 'vscode';
+import { RUN_NATIVE_SOURCE_DOCTOR_COMMAND } from './nativeSourceDoctor';
 
 export const CONFIGURE_COCKPIT_COMMAND = 'tokenGauge.configureCockpit' as const;
 
@@ -98,9 +99,9 @@ export const CONFIGURE_COCKPIT_OPTIONS: readonly ConfigureCockpitOption[] = [
   },
   {
     kind: 'command',
-    label: 'Run Diagnostics',
-    detail: 'Open the read-only Cockpit Diagnostics report to inspect native-status health.',
-    commandId: 'tokenGauge.cockpitDiagnostics',
+    label: 'Run Source Doctor',
+    detail: 'Open the read-only Native Source Doctor report for setup health and next actions.',
+    commandId: RUN_NATIVE_SOURCE_DOCTOR_COMMAND,
   },
   // The Privacy & Data Report is useful but is NOT a
   // cockpit setup step. It is DEMOTED to the end and re-labelled to read as a

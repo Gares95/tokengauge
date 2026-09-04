@@ -70,11 +70,12 @@ function isHiddenFromPalette(command: string): boolean {
   return when === 'false';
 }
 
-// The three native primaries the palette must lead with.
+// The native primaries the palette must lead with.
 const NATIVE_PRIMARIES = [
   'tokenGauge.openCockpit',
   'tokenGauge.refreshNativeStatus',
   'tokenGauge.cockpitDiagnostics',
+  'tokenGauge.runNativeSourceDoctor',
 ] as const;
 
 // R3-copy: obsolete / dev-only commands removed pre-release. They must be ABSENT
@@ -82,7 +83,7 @@ const NATIVE_PRIMARIES = [
 const REMOVED_COMMANDS = ['tokenGauge.runCockpitReport', 'tokenGauge.configureProviders'] as const;
 
 suite('Command-palette audit — native-first clarity', () => {
-  test('The three native primaries are contributed with clear titles', () => {
+  test('The native primaries are contributed with clear titles', () => {
     const commands = commandsById();
     const openCockpit = commands.get('tokenGauge.openCockpit');
     assert.ok(openCockpit, 'manifest must contribute tokenGauge.openCockpit');
@@ -95,6 +96,10 @@ suite('Command-palette audit — native-first clarity', () => {
     const diag = commands.get('tokenGauge.cockpitDiagnostics');
     assert.ok(diag, 'manifest must contribute tokenGauge.cockpitDiagnostics');
     assert.match(diag?.title ?? '', /cockpit diagnostics/i);
+
+    const doctor = commands.get('tokenGauge.runNativeSourceDoctor');
+    assert.ok(doctor, 'manifest must contribute tokenGauge.runNativeSourceDoctor');
+    assert.match(doctor?.title ?? '', /source doctor/i);
   });
 
   test('The native primaries are visible in the command palette (not hidden)', () => {

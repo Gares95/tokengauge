@@ -6,6 +6,10 @@ to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ## [Unreleased]
 
+### Added
+
+- Added **TokenGauge: Run Source Doctor**, a readonly, local-only, provider-neutral setup-health report for unavailable, stale, blocked, or incomplete native source cards. It reports sanitized rule IDs, settings scopes, closed categories, and next actions without reading logs, writing settings, synthesizing usage, or running a Codex probe by itself.
+
 ## [0.0.4] - 2026-08-21
 
 ### Added

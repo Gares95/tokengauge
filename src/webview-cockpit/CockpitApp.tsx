@@ -182,6 +182,7 @@ export function CockpitView({
   onOpenSettings = NOOP,
   onPrivacy = NOOP,
   onDiagnostics = NOOP,
+  onSourceDoctor = NOOP,
   checkedLabel,
   refreshing = false,
   showTechnicalDetails = false,
@@ -198,6 +199,7 @@ export function CockpitView({
   readonly onOpenSettings?: (target?: SettingTarget) => void;
   readonly onPrivacy?: () => void;
   readonly onDiagnostics?: () => void;
+  readonly onSourceDoctor?: () => void;
   // Local-time "HH:MM" stamp of the last completed check (manual or poll),
   // folded into the summary sub-line.
   readonly checkedLabel?: string;
@@ -212,6 +214,7 @@ export function CockpitView({
     onOpenSettings,
     onRefresh,
     onDiagnostics,
+    onSourceDoctor,
   };
   const summary = summarize(cards, checkedLabel !== undefined ? { checkedLabel } : {});
   const bothProviderCardsHidden = !cardVisibility.claude && !cardVisibility.codex;
@@ -419,6 +422,7 @@ export function CockpitApp({
     postMessage(target !== undefined ? { type: 'openSettings', target } : { type: 'openSettings' });
   const onPrivacy = (): void => postMessage({ type: 'openPrivacyReport' });
   const onDiagnostics = (): void => postMessage({ type: 'openCockpitDiagnostics' });
+  const onSourceDoctor = (): void => postMessage({ type: 'openNativeSourceDoctor' });
 
   return (
     <CockpitView
@@ -429,6 +433,7 @@ export function CockpitApp({
       onOpenSettings={onOpenSettings}
       onPrivacy={onPrivacy}
       onDiagnostics={onDiagnostics}
+      onSourceDoctor={onSourceDoctor}
       {...(checkedLabel !== undefined ? { checkedLabel } : {})}
       refreshing={refreshing}
       showTechnicalDetails={displayConfig.showTechnicalDetails}

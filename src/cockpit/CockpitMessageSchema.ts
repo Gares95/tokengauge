@@ -6,9 +6,9 @@
 // closed z.enum sets for freshness/risk/colorKey/sourceTier/reason/accuracy,
 // bounded z.string().max() for display strings, and NO z.unknown().
 //
-// Only seven inbound types are allowlisted: ready | refreshNativeStatus |
+// Only eight inbound types are allowlisted: ready | refreshNativeStatus |
 // openClaudeSnapshotPathSetting | openSettings | configureCockpit |
-// openPrivacyReport | openCockpitDiagnostics.
+// openPrivacyReport | openCockpitDiagnostics | openNativeSourceDoctor.
 // Anything else drops with ruleId 'cockpit-postmessage-invalid'. The two open*
 // additions (cockpit refinement) carry NO payload — each is a bare
 // `{ type }` the host routes to the matching read-only TokenGauge command.
@@ -48,10 +48,13 @@ const OpenClaudeSnapshotPathSettingMessageSchema = z
 const ConfigureCockpitMessageSchema = z.object({ type: z.literal('configureCockpit') }).strict();
 // Cockpit refinement: the persistent action links post these. The host routes
 // them to the existing read-only `tokenGauge.openPrivacyReport` /
-// `tokenGauge.cockpitDiagnostics` commands — neither carries or sets any value.
+// `tokenGauge.cockpitDiagnostics` / `tokenGauge.runNativeSourceDoctor` commands — neither carries or sets any value.
 const OpenPrivacyReportMessageSchema = z.object({ type: z.literal('openPrivacyReport') }).strict();
 const OpenCockpitDiagnosticsMessageSchema = z
   .object({ type: z.literal('openCockpitDiagnostics') })
+  .strict();
+const OpenNativeSourceDoctorMessageSchema = z
+  .object({ type: z.literal('openNativeSourceDoctor') })
   .strict();
 
 export const CockpitInboundMessageSchema = z.discriminatedUnion('type', [
@@ -62,6 +65,7 @@ export const CockpitInboundMessageSchema = z.discriminatedUnion('type', [
   ConfigureCockpitMessageSchema,
   OpenPrivacyReportMessageSchema,
   OpenCockpitDiagnosticsMessageSchema,
+  OpenNativeSourceDoctorMessageSchema,
 ]);
 
 // ── Outbound (extension host → webview): fully-typed VM payload ─────────────

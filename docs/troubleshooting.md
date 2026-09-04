@@ -7,9 +7,14 @@ returns nothing, and the Claude and Codex checks worth running first.
 
 **Cockpit (native):**
 
-- Run **TokenGauge: Cockpit Diagnostics** to inspect native-status health, source
-  kinds, and redacted state. Diagnostics never echo raw snapshot/log content,
-  secrets, or paths beyond redacted form.
+- Run **TokenGauge: Run Source Doctor** first when a provider card is
+  unavailable, stale, blocked, or incomplete. It reports source health, effective
+  settings scopes, and sanitized next actions without writing settings, reading
+  logs, or running a Codex probe by itself.
+- Use **TokenGauge: Cockpit Diagnostics** as the advanced support report for
+  bounded runtime stages, counters, retention state, and internal rule
+  information after Source Doctor. Diagnostics never echo raw snapshot/log
+  content, secrets, or paths beyond redacted form.
 - If a cockpit card shows a field as unavailable, the card states the
   **reason** rather than guessing, for example the native surface was not found,
   or the Codex native status probe is off (the private default). Use
@@ -23,7 +28,7 @@ returns nothing, and the Claude and Codex checks worth running first.
   snapshot JSON, and that TokenGauge points to the JSON snapshot output or
   snapshot directory, not the writer script.
 - If the snapshot file exists but the Claude card still shows no gauge, run
-  **TokenGauge: Cockpit Diagnostics** and check the statusLine snapshot status.
+  **TokenGauge: Run Source Doctor** and check the statusLine snapshot status.
   `statusline_snapshot_missing_rate_limits` means TokenGauge read the snapshot
   successfully, but Claude Code did not include 5h or weekly `rate_limits` fields
   in that sample. This is not a path problem, and TokenGauge will not guess a usage window.
@@ -83,7 +88,7 @@ a fallback.
 **Probe seems on although your User settings say off:**
 
 A Workspace or Folder setting can override your User setting. Run **TokenGauge:
-Cockpit Diagnostics** and check the probe's effective scope; **TokenGauge:
+Run Source Doctor** and check the probe's effective scope; **TokenGauge:
 Configure Cockpit** routes you to the scope that actually controls the value.
 In WSL, Remote-SSH, or Dev Container windows, also check Remote settings; local
 desktop User settings are for local windows and may not affect the remote
@@ -98,7 +103,7 @@ sleep, hibernation, Wi-Fi reconnects, VPN changes, or provider reconnects, the
 Claude card can temporarily show stale or unavailable data until Claude Code
 writes the next valid snapshot. Run **TokenGauge: Refresh Native Status
 (Cockpit)** after Claude Code reconnects. If the card still does not recover,
-run **TokenGauge: Cockpit Diagnostics** and check the Claude snapshot status.
+run **TokenGauge: Run Source Doctor** and check the Claude snapshot status.
 
 **Codex card vs the inline statusline disagree?**
 
@@ -120,8 +125,8 @@ decide:
   in Codex to refresh it before comparing.
 - Run **TokenGauge: Refresh Native Status (Cockpit)** to force a fresh app-server
   probe (only when the probe is enabled and the Codex card is visible), then
-  **TokenGauge: Cockpit Diagnostics**. The diagnostics show, in redacted
-  boolean/rule-id form, the last app-server probe age, the freshness tier
+  **TokenGauge: Run Source Doctor** first. Use **TokenGauge: Cockpit Diagnostics**
+  for the advanced redacted boolean/rule-id form of the last app-server probe age, the freshness tier
   (fresh / retained / stale), which recognized windows are available, whether
   the reset time is known, whether your last manual Refresh actually forced a
   probe, and whether a lower lagging probe was conservatively held back. Those

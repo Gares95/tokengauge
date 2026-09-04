@@ -54,6 +54,7 @@ suite('CockpitMessage schemas', () => {
       { type: 'configureCockpit' },
       { type: 'openPrivacyReport' },
       { type: 'openCockpitDiagnostics' },
+      { type: 'openNativeSourceDoctor' },
     ]) {
       const parsed = parseCockpitInboundMessage(message);
       assert.equal(parsed.ok, true, `expected ${message.type} to parse`);
@@ -64,9 +65,9 @@ suite('CockpitMessage schemas', () => {
   // button can route to the read-only Configure Cockpit guidance.
   // OpenClaudeSnapshotPathSetting is deliberately separate so the Claude card CTA
   // cannot fall through to the generic Configure Cockpit picker.
-  // OpenPrivacyReport + openCockpitDiagnostics join so the persistent action
-  // links route to the existing read-only commands.
-  test('Inbound type set is locked to the seven allowlisted types', () => {
+  // OpenPrivacyReport, openCockpitDiagnostics, and openNativeSourceDoctor join
+  // so persistent/CTA links route to existing read-only commands.
+  test('Inbound type set is locked to the eight allowlisted types', () => {
     const inboundTypes = CockpitInboundMessageSchema.options.map(
       (option) => option.shape.type.value,
     );
@@ -74,6 +75,7 @@ suite('CockpitMessage schemas', () => {
       'configureCockpit',
       'openClaudeSnapshotPathSetting',
       'openCockpitDiagnostics',
+      'openNativeSourceDoctor',
       'openPrivacyReport',
       'openSettings',
       'ready',

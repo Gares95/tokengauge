@@ -32,7 +32,8 @@ export type SetupAction =
   | 'openClaudeSnapshotPathSetting'
   | 'openSettings'
   | 'refreshNativeStatus'
-  | 'openCockpitDiagnostics';
+  | 'openCockpitDiagnostics'
+  | 'openNativeSourceDoctor';
 
 // A closed enum of settings a CTA may open directly (never an arbitrary query).
 export type SettingTarget = 'claudeSnapshotPath' | 'codexProbe' | 'providerCards';
@@ -130,8 +131,8 @@ const SETUP_BY_REASON: Partial<Record<CockpitFieldReason, SetupSpec>> = {
   statusline_snapshot_missing_rate_limits: {
     title: 'Waiting for limit fields',
     msg: 'TokenGauge read the Claude statusLine snapshot, but this sample did not include 5h or weekly rate-limit fields. Claude Code usually reports those fields only for supported subscription sessions and after a Claude response. TokenGauge will not guess a usage window.',
-    ctaLabel: 'Open diagnostics',
-    action: 'openCockpitDiagnostics',
+    ctaLabel: 'Run Source Doctor',
+    action: 'openNativeSourceDoctor',
   },
   codex_probe_disabled: {
     title: 'Native probe is off',
@@ -150,8 +151,8 @@ const SETUP_BY_REASON: Partial<Record<CockpitFieldReason, SetupSpec>> = {
   codex_probe_no_response: {
     title: 'Native status blocked',
     msg: 'The Codex app-server did not respond over stdio. In some WSL or remote setups this can be a Codex CLI or app-server limitation; update Codex CLI or try an environment where app-server responds over stdio.',
-    ctaLabel: 'Open diagnostics',
-    action: 'openCockpitDiagnostics',
+    ctaLabel: 'Run Source Doctor',
+    action: 'openNativeSourceDoctor',
   },
   codex_probe_failed: {
     title: 'Native status blocked',
@@ -204,7 +205,7 @@ function windowResetPendingSpec(agentLabel: string): SetupSpec {
 // denying the user's configuration is the worst first-run debugging experience.
 const DEFAULT_SETUP: SetupSpec = {
   title: 'No native status',
-  msg: 'TokenGauge could not read a native status for this agent on the last check. If you have configured a source, verify it; Diagnostics has details.',
+  msg: 'TokenGauge could not read a native status for this agent on the last check. If you have configured a source, verify it; Source Doctor has setup details.',
   ctaLabel: 'Configure Cockpit',
   action: 'configureCockpit',
 };
