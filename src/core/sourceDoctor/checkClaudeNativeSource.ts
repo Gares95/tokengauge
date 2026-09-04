@@ -9,7 +9,7 @@ import {
   readStatuslineSnapshotCandidate,
   type StatuslineSnapshotStatus,
 } from '../cockpit/readStatuslineSnapshot';
-import type { SourceCandidate } from '../cockpit/SourcePriorityResolver';
+import { FRESHNESS_LIMIT_MS, type SourceCandidate } from '../cockpit/SourcePriorityResolver';
 import type { NativeSourceDoctorFinding, NativeSourceDoctorProviderReport } from './types';
 
 export interface ClaudeNativeSourceDoctorInput {
@@ -33,20 +33,60 @@ function windowsOf(candidate: SourceCandidate | undefined): string {
   return windows.length > 0 ? windows.join(', ') : 'none';
 }
 
+function singleFileFreshness(
+  candidate: SourceCandidate | undefined,
+  nowMs: number,
+): 'fresh' | 'stale' | 'unknown' {
+  const capturedAtMs = candidate?.snapshotCapturedAtMs;
+  if (typeof capturedAtMs !== 'number' || !Number.isFinite(capturedAtMs)) return 'unknown';
+  const ageMs = nowMs - capturedAtMs;
+  if (!Number.isFinite(ageMs) || ageMs < 0) return 'unknown';
+  return ageMs <= FRESHNESS_LIMIT_MS ? 'fresh' : 'stale';
+}
+
 function singleFileFinding(
   status: StatuslineSnapshotStatus,
   candidate: SourceCandidate | undefined,
+  nowMs: number,
 ): NativeSourceDoctorFinding {
   const facts = [{ name: 'snapshot mode', value: 'single file' }];
   switch (status) {
-    case 'statusline_snapshot_loaded':
+    case 'statusline_snapshot_loaded': {
+      const freshness = singleFileFreshness(candidate, nowMs);
+      const recognizedWindows = { name: 'recognized windows', value: windowsOf(candidate) };
+      if (freshness === 'fresh') {
+        return {
+          ruleId: 'doctor_claude_snapshot_loaded',
+          severity: 'ok',
+          title: 'Claude statusLine snapshot is readable and fresh',
+          message:
+            'The configured snapshot parsed safely, is recent, and exposes recognized limit windows.',
+          facts: [...facts, recognizedWindows, { name: 'snapshot freshness', value: 'fresh' }],
+        };
+      }
+      if (freshness === 'stale') {
+        return {
+          ruleId: 'doctor_claude_snapshot_stale',
+          severity: 'warning',
+          title: 'Claude statusLine snapshot is stale',
+          message:
+            'The configured snapshot parsed safely, but its writer timestamp is outside the active freshness window.',
+          action:
+            'Run or focus Claude Code so the statusLine writer can produce a fresh sanitized snapshot.',
+          facts: [...facts, recognizedWindows, { name: 'snapshot freshness', value: 'stale' }],
+        };
+      }
       return {
-        ruleId: 'doctor_claude_snapshot_loaded',
-        severity: 'ok',
-        title: 'Claude statusLine snapshot is readable',
-        message: 'The configured snapshot parsed safely and exposes recognized limit windows.',
-        facts: [...facts, { name: 'recognized windows', value: windowsOf(candidate) }],
+        ruleId: 'doctor_claude_snapshot_freshness_unknown',
+        severity: 'warning',
+        title: 'Claude statusLine snapshot freshness is unknown',
+        message:
+          'The configured snapshot parsed safely and exposes recognized limit windows, but TokenGauge could not establish whether the writer timestamp is current.',
+        action:
+          'Confirm the documented statusLine writer is producing snapshots with a valid timestamp before treating the card as live.',
+        facts: [...facts, recognizedWindows, { name: 'snapshot freshness', value: 'unknown' }],
       };
+    }
     case 'statusline_snapshot_missing':
       return {
         ruleId: 'doctor_claude_snapshot_missing',
@@ -213,7 +253,7 @@ export function checkClaudeNativeSource(
     findings.push(directoryFinding(result.status, result.activeWriters, result.candidate));
   } else {
     const result = readStatuslineSnapshotCandidate(configured, input);
-    findings.push(singleFileFinding(result.status, result.candidate));
+    findings.push(singleFileFinding(result.status, result.candidate, input.now().getTime()));
   }
 
   findings.push(statsCacheFinding(input));

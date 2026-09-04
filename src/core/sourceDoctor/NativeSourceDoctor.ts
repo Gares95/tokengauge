@@ -15,6 +15,7 @@ import type {
 export interface BuildNativeSourceDoctorReportInput {
   readonly generatedAtMs: number;
   readonly remoteLabel?: string;
+  readonly claudeSnapshotScope: NativeSourceDoctorSettingsScope;
   readonly codexProbeScope: NativeSourceDoctorSettingsScope;
   readonly claude: ClaudeNativeSourceDoctorInput;
   readonly codex: CodexNativeSourceDoctorInput;
@@ -38,6 +39,7 @@ export function buildNativeSourceDoctorReport(
     host: {
       remoteKind: remoteLabel === undefined ? 'local' : 'remote',
       ...(remoteLabel !== undefined ? { remoteLabel } : {}),
+      claudeSnapshotScope: input.claudeSnapshotScope,
       codexProbeScope: input.codexProbeScope,
     },
     providers,

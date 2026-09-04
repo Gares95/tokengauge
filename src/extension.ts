@@ -740,88 +740,32 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
     vscode.commands.registerCommand('tokenGauge.runNativeSourceDoctor', async () => {
       const [
         { runNativeSourceDoctor },
-        { buildNativeSourceDoctorReport },
-        { resolveStatuslineSnapshotPath, MAX_SNAPSHOT_FILES, SNAPSHOT_FILE_PATTERN },
-        { readStatsCacheCandidates },
+        { buildNativeSourceDoctorReportFromHost },
         { homedir },
         { join },
-        { readFileSync, readdirSync, statSync },
+        fs,
       ] = await Promise.all([
         import('./commands/nativeSourceDoctor.js'),
-        import('./core/sourceDoctor/NativeSourceDoctor.js'),
-        import('./cockpit/gatherNativeCockpitCandidates.js'),
-        import('./adapters/claudeCode/ClaudeStatsCacheSource.js'),
+        import('./commands/nativeSourceDoctorReportBuilder.js'),
         import('node:os'),
         import('node:path'),
         import('node:fs'),
       ]);
       return runNativeSourceDoctor({
-        buildReport: async () => {
-          const snapshot = cfg.snapshot();
-          const cardVisibility = resolveProviderCardVisibility({
-            claude: snapshot['tokenGauge.display.cards.claude.visible'],
-            codex: snapshot['tokenGauge.display.cards.codex.visible'],
-          });
-          const probeSettingEnabled =
-            snapshot['tokenGauge.providers.codex.nativeStatusProbe'] === true;
-          const effectiveProbeEnabled = codexProbeVisibleForCockpit(
-            probeSettingEnabled,
-            cardVisibility,
-          );
-          const sm = secretManager as SecretManager;
-          const salt = await sm.getOrCreateInstallSalt();
-          const hasher = new IdHasher(salt);
-          const statuslinePath = cardVisibility.claude
-            ? resolveStatuslineSnapshotPath({
-                statuslineSnapshotPath: snapshot['tokenGauge.claude.statuslineSnapshotPath'],
-                join,
-                homedir,
-              })
-            : undefined;
-          const statsCachePath = cardVisibility.claude
-            ? join(homedir(), '.claude', 'stats-cache.json')
-            : undefined;
-          const codexProbeScope = codexProbeScopeOf();
-          return buildNativeSourceDoctorReport({
-            generatedAtMs: Date.now(),
-            remoteLabel: vscode.env.remoteName,
-            codexProbeScope,
-            claude: {
-              visible: cardVisibility.claude,
-              configuredLocation: statuslinePath,
-              statsCacheLocation: statsCachePath,
-              readFile: (location) => readFileSync(location, 'utf8'),
-              isDirectory: (location) => {
-                try {
-                  return statSync(location).isDirectory();
-                } catch {
-                  return false;
-                }
-              },
-              listDir: (location) => {
-                const out: Array<{ name: string; mtimeMs: number }> = [];
-                for (const name of readdirSync(location)) {
-                  if (!SNAPSHOT_FILE_PATTERN.test(name)) continue;
-                  if (out.length >= MAX_SNAPSHOT_FILES) break;
-                  try {
-                    const st = statSync(join(location, name));
-                    if (st.isFile()) out.push({ name, mtimeMs: st.mtimeMs });
-                  } catch {
-                    // A per-file race is ignored; the Doctor reports the safe aggregate state.
-                  }
-                }
-                return out;
-              },
-              join,
-              hasher,
-              now: () => new Date(),
-              readStatsCacheCandidates,
-            },
-            codex: {
-              visible: cardVisibility.codex,
-              configuredProbeEnabled: probeSettingEnabled,
-              effectiveProbeEnabled,
-              effectiveScope: codexProbeScope,
+        buildReport: async () =>
+          buildNativeSourceDoctorReportFromHost({
+            snapshot: () => cfg.snapshot(),
+            getInstallSalt: () => (secretManager as SecretManager).getOrCreateInstallSalt(),
+            remoteName: () => vscode.env.remoteName,
+            inspectClaudeSnapshotScope: () =>
+              vscode.workspace
+                .getConfiguration('tokenGauge')
+                .inspect<string>('claude.statuslineSnapshotPath'),
+            inspectCodexProbeScope: () =>
+              vscode.workspace
+                .getConfiguration('tokenGauge')
+                .inspect<boolean>('providers.codex.nativeStatusProbe'),
+            codexProbeState: () => ({
               loop: cockpitLoop?.diagnosticsSnapshot(),
               retention: codexRetentionGate?.diagnosticsSnapshot(),
               lastProbeStage: cockpitCodexLastProbeStage,
@@ -831,9 +775,34 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
               exitBucket: cockpitCodexLastProbeExitBucket,
               cliResolver: cockpitCodexCliResolver,
               cliResolverStage: cockpitCodexCliResolverStage,
+            }),
+            now: () => new Date(),
+            homedir,
+            join,
+            readFile: (location) => fs.readFileSync(location, 'utf8'),
+            isDirectory: (location) => {
+              try {
+                return fs.statSync(location).isDirectory();
+              } catch {
+                return false;
+              }
             },
-          });
-        },
+            listDir: (location) => fs.readdirSync(location),
+            fileMtimeMs: (location) => {
+              try {
+                return fs.statSync(location).mtimeMs;
+              } catch {
+                return undefined;
+              }
+            },
+            isFile: (location) => {
+              try {
+                return fs.statSync(location).isFile();
+              } catch {
+                return false;
+              }
+            },
+          }),
         renderReport: async (report) => {
           const doc = await vscode.workspace.openTextDocument({
             content: report.body,

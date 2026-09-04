@@ -397,6 +397,11 @@ export class GaugeCockpitViewProvider implements vscode.WebviewViewProvider {
         // command (rule-id-only surface). No payload, no setting write.
         await commandExecutor('tokenGauge.cockpitDiagnostics');
         return;
+      case 'openNativeSourceDoctor':
+        // Setup-health CTAs route to the user-facing Source Doctor. The command
+        // reports existing sanitized state only; it never writes settings or runs a probe.
+        await commandExecutor('tokenGauge.runNativeSourceDoctor');
+        return;
     }
   }
 

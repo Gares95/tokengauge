@@ -82,6 +82,7 @@ export function renderNativeSourceDoctorReport(
     '',
     '## Extension host and settings scope',
     `- extension host: ${remoteLine}`,
+    `- Claude snapshot effective scope: ${report.host.claudeSnapshotScope}`,
     `- Codex probe effective scope: ${report.host.codexProbeScope}`,
     '- Doctor posture: user-triggered, readonly, local-only, no settings writes.',
     '',

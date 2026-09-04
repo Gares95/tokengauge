@@ -103,12 +103,6 @@ export const CONFIGURE_COCKPIT_OPTIONS: readonly ConfigureCockpitOption[] = [
     detail: 'Open the read-only Native Source Doctor report for setup health and next actions.',
     commandId: RUN_NATIVE_SOURCE_DOCTOR_COMMAND,
   },
-  {
-    kind: 'command',
-    label: 'Run Diagnostics',
-    detail: 'Open the read-only Cockpit Diagnostics report to inspect native-status health.',
-    commandId: 'tokenGauge.cockpitDiagnostics',
-  },
   // The Privacy & Data Report is useful but is NOT a
   // cockpit setup step. It is DEMOTED to the end and re-labelled to read as a
   // learn option — never a required setup action. The setup-focused options

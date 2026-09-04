@@ -160,6 +160,7 @@ export interface AgentCardCallbacks {
   readonly onOpenSettings: (target?: SettingTarget) => void;
   readonly onRefresh: () => void;
   readonly onDiagnostics: () => void;
+  readonly onSourceDoctor: () => void;
 }
 
 const NO_CALLBACKS: AgentCardCallbacks = {
@@ -168,6 +169,7 @@ const NO_CALLBACKS: AgentCardCallbacks = {
   onOpenSettings: () => {},
   onRefresh: () => {},
   onDiagnostics: () => {},
+  onSourceDoctor: () => {},
 };
 
 function ctaHandler(spec: SetupSpec, callbacks: AgentCardCallbacks): () => void {
@@ -177,6 +179,7 @@ function ctaHandler(spec: SetupSpec, callbacks: AgentCardCallbacks): () => void 
   if (spec.action === 'openSettings') return () => callbacks.onOpenSettings(spec.settingTarget);
   if (spec.action === 'refreshNativeStatus') return callbacks.onRefresh;
   if (spec.action === 'openCockpitDiagnostics') return callbacks.onDiagnostics;
+  if (spec.action === 'openNativeSourceDoctor') return callbacks.onSourceDoctor;
   return callbacks.onConfigure;
 }
 

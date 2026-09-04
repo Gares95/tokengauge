@@ -5,10 +5,11 @@ export type NativeSourceDoctorProviderId = 'claude' | 'codex';
 export type NativeSourceDoctorSettingsScope = 'default' | 'user' | 'workspace' | 'workspaceFolder';
 
 export type NativeSourceDoctorRuleId =
-  | 'doctor_host_scope'
   | 'doctor_claude_card_hidden'
   | 'doctor_claude_snapshot_not_configured'
   | 'doctor_claude_snapshot_loaded'
+  | 'doctor_claude_snapshot_stale'
+  | 'doctor_claude_snapshot_freshness_unknown'
   | 'doctor_claude_snapshot_missing'
   | 'doctor_claude_snapshot_parse_failed'
   | 'doctor_claude_snapshot_missing_rate_limits'
@@ -28,7 +29,7 @@ export type NativeSourceDoctorRuleId =
   | 'doctor_codex_no_last_known_value'
   | 'doctor_codex_protocol_drift'
   | 'doctor_codex_probe_stale'
-  | 'doctor_codex_retention_state';
+  | 'doctor_codex_probe_degraded';
 
 export type NativeSourceDoctorFactValue = string | number | boolean;
 
@@ -56,6 +57,7 @@ export interface NativeSourceDoctorProviderReport {
 export interface NativeSourceDoctorHostReport {
   readonly remoteKind: 'local' | 'remote';
   readonly remoteLabel?: string;
+  readonly claudeSnapshotScope: NativeSourceDoctorSettingsScope;
   readonly codexProbeScope: NativeSourceDoctorSettingsScope;
 }
 

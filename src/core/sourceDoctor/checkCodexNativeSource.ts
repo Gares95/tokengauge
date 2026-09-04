@@ -33,16 +33,56 @@ export interface CodexNativeSourceDoctorInput {
   readonly cliResolverStage: CodexCliResolverStage;
 }
 
-function stageSeverity(stage: CodexProbeStage, reason: CockpitFieldReason | undefined) {
-  if (reason === 'codex_protocol_drift') return 'blocked' as const;
-  if (stage === 'completed' || stage === 'parsed' || stage === 'ratelimits_received') {
-    return 'ok' as const;
+function codexFailureAction(reason: CockpitFieldReason | undefined): string | undefined {
+  switch (reason) {
+    case 'codex_protocol_drift':
+      return 'Update TokenGauge when Codex changes its app-server status format; TokenGauge will not guess missing windows.';
+    case 'codex_probe_timeout':
+      return 'Run Refresh Native Status again after confirming the local Codex CLI responds in this extension-host environment.';
+    case 'codex_probe_no_response':
+      return 'Update Codex CLI or try an environment where the local app-server responds over stdio.';
+    case 'codex_cli_not_found':
+      return 'Install or expose the Codex CLI on the extension-host PATH, then run Refresh Native Status.';
+    case 'codex_probe_failed':
+    case 'codex_native_status_unavailable':
+    case 'codex_probe_temporarily_unavailable':
+      return 'Run Refresh Native Status after confirming Codex is signed in on this extension-host side.';
+    case 'codex_probe_parse_failed_after_valid':
+      return 'Update TokenGauge if the Codex local status response changed; TokenGauge will keep the last known sanitized value until a supported response returns.';
+    case 'codex_probe_no_data_after_valid':
+      return 'Run Refresh Native Status after Codex reports a recognized short or weekly window again.';
+    case 'codex_probe_stale':
+      return 'Use Refresh Native Status to request a fresh Codex probe when the probe is enabled.';
+    case 'codex_probe_pending':
+      return 'Open the cockpit or run Refresh Native Status to collect current sanitized Codex state.';
+    default:
+      return undefined;
   }
-  if (stage === 'idle') return 'info' as const;
-  if (stage === 'cli_not_found' || stage === 'no_stdio' || stage === 'run_threw') {
-    return 'warning' as const;
-  }
-  return 'info' as const;
+}
+
+function codexFailureLabel(reason: CockpitFieldReason | undefined): string {
+  return reason?.replace(/^codex_/, '').replaceAll('_', '-') ?? 'no-failure';
+}
+
+function reasonSeverity(
+  reason: CockpitFieldReason | undefined,
+): NativeSourceDoctorFinding['severity'] {
+  if (reason === undefined) return 'ok';
+  if (reason === 'codex_protocol_drift') return 'blocked';
+  if (reason === 'codex_probe_disabled') return 'info';
+  return 'warning';
+}
+
+function stageSeverity(
+  stage: CodexProbeStage,
+  reason: CockpitFieldReason | undefined,
+): NativeSourceDoctorFinding['severity'] {
+  const fromReason = reasonSeverity(reason);
+  if (fromReason !== 'ok') return fromReason;
+  if (stage === 'completed' || stage === 'parsed' || stage === 'ratelimits_received') return 'ok';
+  if (stage === 'idle') return 'info';
+  if (stage === 'cli_not_found' || stage === 'no_stdio' || stage === 'run_threw') return 'warning';
+  return 'info';
 }
 
 function retentionFinding(
@@ -74,40 +114,58 @@ function retentionFinding(
       title: 'Codex app-server response is unsupported',
       message:
         'The last Codex state contained neither recognized usage window nor a supported response shape.',
-      action:
-        'Update TokenGauge when Codex changes its app-server status format; TokenGauge will not guess missing windows.',
+      action: codexFailureAction(retention.lastAppliedReason),
       facts,
     };
   }
   if (retention.hasLastKnownValid) {
+    const reasonSeverityValue = reasonSeverity(retention.lastAppliedReason);
+    const degradedByReason = reasonSeverityValue === 'warning' || reasonSeverityValue === 'blocked';
+    const degradedByFreshness =
+      retention.freshnessTier === 'retained' || retention.freshnessTier === 'stale';
+    if (
+      retention.freshnessTier === 'stale' ||
+      retention.lastAppliedReason === 'codex_probe_stale'
+    ) {
+      return {
+        ruleId: 'doctor_codex_probe_stale',
+        severity: 'warning',
+        title: 'Codex value is retained but stale',
+        message:
+          'TokenGauge is showing a sanitized last-known Codex value because no current supported value is available inside the freshness window.',
+        action: codexFailureAction(retention.lastAppliedReason),
+        facts,
+      };
+    }
+    if (degradedByReason || degradedByFreshness) {
+      return {
+        ruleId: 'doctor_codex_probe_degraded',
+        severity: 'warning',
+        title: 'Codex value is retained after a degraded probe',
+        message: `TokenGauge is showing a sanitized last-known Codex value because the current probe ended in a closed ${codexFailureLabel(
+          retention.lastAppliedReason,
+        )} state.`,
+        action: codexFailureAction(retention.lastAppliedReason),
+        facts,
+      };
+    }
     return {
-      ruleId:
-        retention.freshnessTier === 'stale'
-          ? 'doctor_codex_probe_stale'
-          : 'doctor_codex_last_known_value',
-      severity: retention.freshnessTier === 'stale' ? 'warning' : 'ok',
-      title:
-        retention.freshnessTier === 'stale'
-          ? 'Codex value is retained but stale'
-          : 'Codex has a retained last-known value',
-      message: 'TokenGauge has a sanitized Codex value from a previous valid app-server response.',
-      action:
-        retention.freshnessTier === 'stale'
-          ? 'Use Refresh Native Status to request a fresh Codex probe when the probe is enabled.'
-          : undefined,
+      ruleId: 'doctor_codex_last_known_value',
+      severity: 'ok',
+      title: 'Codex has a current recognized window state',
+      message: 'TokenGauge has a sanitized Codex value from a valid app-server response.',
       facts,
     };
   }
   const windowUsed: CodexWindowUsed = retention.windowUsed;
+  const severity = reasonSeverity(retention.lastAppliedReason);
   return {
     ruleId: 'doctor_codex_no_last_known_value',
-    severity: retention.probeEnabled ? 'warning' : 'info',
-    title: 'Codex has no last-known value yet',
+    severity: severity === 'ok' ? (retention.probeEnabled ? 'warning' : 'info') : severity,
+    title: 'Codex has no valid native value yet',
     message:
       'No valid Codex app-server response has produced a recognized short or weekly window in this session.',
-    action: retention.probeEnabled
-      ? 'Run Refresh Native Status after confirming the Codex CLI is signed in on this extension-host side.'
-      : undefined,
+    action: codexFailureAction(retention.lastAppliedReason),
     facts: [...facts, { name: 'recognized window state', value: windowUsed }],
   };
 }

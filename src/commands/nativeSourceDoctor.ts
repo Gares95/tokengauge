@@ -1,4 +1,3 @@
-import * as vscode from 'vscode';
 import { renderNativeSourceDoctorReport } from '../core/sourceDoctor/renderNativeSourceDoctorReport';
 import type {
   NativeSourceDoctorRenderedReport,
@@ -16,17 +15,6 @@ export interface NativeSourceDoctorCommandResult {
 export interface NativeSourceDoctorCommandDeps {
   readonly buildReport: () => Promise<NativeSourceDoctorReport> | NativeSourceDoctorReport;
   readonly renderReport: (report: NativeSourceDoctorRenderedReport) => Promise<void>;
-}
-
-export function registerNativeSourceDoctorCommand(
-  context: vscode.ExtensionContext,
-  deps: NativeSourceDoctorCommandDeps,
-): void {
-  context.subscriptions.push(
-    vscode.commands.registerCommand(RUN_NATIVE_SOURCE_DOCTOR_COMMAND, () =>
-      runNativeSourceDoctor(deps),
-    ),
-  );
 }
 
 export async function runNativeSourceDoctor(
