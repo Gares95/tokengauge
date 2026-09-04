@@ -2,7 +2,7 @@
   "name": "tokengauge-vscode",
   "displayName": "TokenGauge",
   "description": "Native-only status cockpit for Claude Code and experimental Codex usage windows exposed by local tools",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "publisher": "gares-extensions",
   "engines": {
     "vscode": "^1.95.0"

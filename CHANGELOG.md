@@ -6,9 +6,24 @@ to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-09-04
+
 ### Added
 
-- Added **TokenGauge: Run Source Doctor**, a readonly, local-only, provider-neutral setup-health report for unavailable, stale, blocked, or incomplete native source cards. It reports sanitized rule IDs, settings scopes, closed categories, and next actions without reading logs, writing settings, synthesizing usage, or running a Codex probe by itself.
+- Added **TokenGauge: Run Source Doctor**, a readonly, local-only, provider-neutral setup-health report for unavailable, stale, blocked, or incomplete native source cards. It reports sanitized rule IDs, settings scopes, source freshness, closed categories, and next actions without reading logs, writing settings, synthesizing usage, making network calls, or running a Codex probe by itself.
+
+### Changed
+
+- Documented Source Doctor as the primary troubleshooting path and kept Cockpit Diagnostics as the advanced support report.
+
+### Fixed
+
+- Corrected Source Doctor health classification for retained Codex failures, stale snapshots, and effective snapshot-setting scope reporting.
+
+### Security and maintenance
+
+- Current full npm audit: zero vulnerabilities.
+- Current production npm audit: zero vulnerabilities.
 
 ## [0.0.4] - 2026-08-21
 
