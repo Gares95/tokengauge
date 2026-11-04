@@ -7,8 +7,9 @@
 //   - fixed argv from request.args (exactly ['app-server']); shell:false.
 //   - bounded explicit env allowlist from request.env (see
 //     CodexAppServerProbe.buildEnv) — the full host env is NEVER passed through.
-//   - hard timeout: a watchdog kills the child after request.timeoutMs even if
-//     the probe's own withTimeout does not fire.
+//   - hard timeout: a watchdog stays armed for the child's whole lifetime and
+//     kills it after WATCHDOG_TIMEOUT_MULTIPLIER × request.timeoutMs, even if
+//     the caller never calls kill().
 //   - kill on EVERY settle path — the probe calls kill() in its finally; this
 //     runner also kills on spawn error / exit so no child outlives the exchange.
 //   - stderr is buffered (bounded) but NEVER surfaced into a result/diagnostic —
@@ -36,6 +37,11 @@ const MAX_RESOLVER_OUTPUT_BYTES = 2048;
 const SHELL_RESOLVE_COMMAND = 'command -v codex';
 const USER_SHELL_RESOLVE_TIMEOUT_MS = 2_500;
 const MAX_NVM_VERSION_CANDIDATES = 48;
+// The probe awaits two sequential replies (initialize, then
+// account/rateLimits/read), each bounded by request.timeoutMs. The watchdog is
+// a backstop for a caller that never kills the child, so it allows that whole
+// budget and never cuts short a slow but live exchange.
+const WATCHDOG_TIMEOUT_MULTIPLIER = 2;
 
 export async function spawnCodexAppServerExchange(
   request: CodexProbeRunRequest,
@@ -130,9 +136,13 @@ function spawnCodexAppServerProcess(
     }
 
     let killed = false;
+    // Every terminal path (caller kill, watchdog, spawn error, child exit) goes
+    // through here. Only this child's own handle is signalled; Node no-ops the
+    // call once the child has exited, so a recycled pid is never touched.
     const kill = (): void => {
       if (killed) return;
       killed = true;
+      clearTimeout(watchdog);
       try {
         child.kill('SIGKILL');
       } catch {
@@ -141,8 +151,9 @@ function spawnCodexAppServerProcess(
     };
 
     // Hard watchdog: independent of the probe's per-call timeout, guarantees the
-    // child cannot outlive the bounded exchange.
-    const watchdog = setTimeout(kill, Math.max(1, request.timeoutMs));
+    // child cannot outlive the bounded exchange. It stays armed until the child
+    // is killed or exits — resolving the run result on 'spawn' does NOT clear it.
+    const watchdog = setTimeout(kill, Math.max(1, request.timeoutMs) * WATCHDOG_TIMEOUT_MULTIPLIER);
     if (typeof watchdog.unref === 'function') {
       watchdog.unref();
     }
@@ -151,7 +162,6 @@ function spawnCodexAppServerProcess(
     const settle = (result: CodexProbeRunResult): void => {
       if (settled) return;
       settled = true;
-      clearTimeout(watchdog);
       resolve(result);
     };
 
@@ -181,6 +191,12 @@ function spawnCodexAppServerProcess(
       });
       return;
     }
+
+    // Writing to a child that already closed its stdin (exited or crashed)
+    // fails asynchronously with EPIPE. Without a listener that stream 'error' is
+    // an uncaught exception in the extension host. The probe already reports
+    // the lost reply as a readResult timeout, so the error itself is dropped.
+    stdin.on('error', () => {});
 
     if (child.stderr !== null) {
       child.stderr.on('data', (chunk: Buffer) => {
@@ -242,7 +258,8 @@ function spawnCodexAppServerProcess(
           request.onIo?.('stdin_write_completed');
         } catch {
           // A write after the child died surfaces as a readResult timeout in the
-          // probe — never a throw here.
+          // probe — never a throw here (async EPIPE is absorbed by the stdin
+          // 'error' listener above).
         }
       },
       readResult: (id: number): Promise<unknown> => {
