@@ -327,8 +327,12 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
     // false the loop NEVER invokes runProbe — provably zero spawn — and the codex
     // card resolves to codex_probe_disabled. When enabled, runProbe constructs the
     // real app-server probe behind the consent gate. The runner records each spawn
-    // attempt so the default-profile test can assert zero spawns.
-    const runProbe = async () => {
+    // attempt so the default-profile test can assert zero spawns. `signal`
+    // aborts when this loop is disposed (probe disabled, Codex card hidden,
+    // any cockpit setting changed, or deactivation): the probe then kills its
+    // child, sends nothing more, and rejects before the stage markers below
+    // are overwritten with a stale outcome.
+    const runProbe = async (signal: AbortSignal) => {
       // Record the ATTEMPT immediately so Cockpit Diagnostics shows
       // a probe is in flight even while the (up to 15s) exchange is pending — it is
       // overwritten with the precise final stage when probeCodexNativeStatusGated
@@ -343,6 +347,7 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
       const codexProbeCwd = homedir();
       cockpitCodexProbeCwdLabel = labelCodexProbeCwd(codexProbeCwd, homedir());
       const result = await probeCodexNativeStatusGated({
+        signal,
         probeEnabled: cockpitProbeEnabled,
         probe: cockpitProbeEnabled
           ? new CodexAppServerProbe({

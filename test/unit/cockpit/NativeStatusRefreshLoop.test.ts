@@ -1890,6 +1890,69 @@ suite('NativeStatusRefreshLoop — no post after dispose', () => {
     assert.equal(posts.length, 0, 'a disposed loop must not overwrite the newer loop state');
   });
 
+  test('RunProbe gets a signal that stays live while the loop runs and aborts on dispose', async () => {
+    const timers = fakeTimers();
+    const probe = deferred<readonly SourceCandidate[]>();
+    const signals: (AbortSignal | undefined)[] = [];
+    const loop = createNativeStatusRefreshLoop(
+      baseOptions({
+        snapshotPaths: [],
+        probeEnabled: true,
+        runProbe: (signal?: AbortSignal) => {
+          signals.push(signal);
+          return probe.promise;
+        },
+        setIntervalFn: timers.setIntervalFn,
+        clearIntervalFn: timers.clearIntervalFn,
+      }),
+    );
+    await settle();
+    assert.equal(signals.length, 1, 'startup refresh is awaiting the probe');
+    const signal = signals[0];
+    assert.ok(signal instanceof AbortSignal, 'the in-flight probe must be cancellable');
+    assert.equal(signal.aborted, false);
+
+    loop.dispose();
+    assert.equal(signal.aborted, true, 'dispose must cancel the in-flight probe');
+    probe.resolve([]);
+    await settle();
+  });
+
+  test('An aborted probe rejection after dispose settles the refresh without a post', async () => {
+    const timers = fakeTimers();
+    const posts: unknown[] = [];
+    const diagnostics = recordingDiagnostics();
+    const loop = createNativeStatusRefreshLoop(
+      baseOptions({
+        snapshotPaths: [],
+        probeEnabled: true,
+        // Mirrors CodexAppServerProbe: reject with the abort reason.
+        runProbe: (signal?: AbortSignal) =>
+          new Promise<readonly SourceCandidate[]>((_resolve, reject) => {
+            signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+          }),
+        post: (vms: unknown) => posts.push(vms),
+        diagnostics,
+        setIntervalFn: timers.setIntervalFn,
+        clearIntervalFn: timers.clearIntervalFn,
+      }),
+    );
+    await settle();
+    let chainSettled = false;
+    void loop.refresh('manual').then(() => {
+      chainSettled = true;
+    });
+    loop.dispose();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(chainSettled, true, 'dispose must release a refresh chain waiting on the probe');
+    assert.equal(posts.length, 0);
+    assert.deepEqual(
+      diagnostics.records.map((r) => r.ruleId),
+      [],
+      'a cancelled probe is not a refresh failure',
+    );
+  });
+
   test('A gather in flight when the loop is disposed never posts or probes', async () => {
     const timers = fakeTimers();
     const gather = deferred<readonly SourceCandidate[]>();

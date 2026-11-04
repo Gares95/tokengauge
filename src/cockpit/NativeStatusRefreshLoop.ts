@@ -87,7 +87,12 @@ export interface NativeStatusRefreshLoopOptions {
   // to merge, or an empty array on disabled/failure (the codex card then
   // resolves to its honest unavailable reason via the builder's empty state).
   // The loop owns the consent + cadence gating; the spawn lives behind this seam.
-  runProbe?(): Promise<readonly SourceCandidate[]>;
+  // `signal` lives as long as the loop and aborts on dispose(). Disposal is
+  // how a disabled probe, a hidden Codex card, a settings rebuild, and
+  // deactivation all reach an in-flight probe, which must then stop
+  // (CodexAppServerProbe.run). A rejection after the abort is expected and is
+  // dropped, like any probe failure.
+  runProbe?(signal: AbortSignal): Promise<readonly SourceCandidate[]>;
   // Effective Codex probe permission after user opt-in and card-visibility
   // gates. When false, runProbe is NEVER invoked — provably zero spawn, manual
   // included.
@@ -186,6 +191,10 @@ export function createNativeStatusRefreshLoop(
   let intervalHandle: unknown;
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
   let disposed = false;
+  // Aborted by dispose() so an in-flight probe stops instead of finishing for
+  // a loop whose configuration is obsolete. One per loop lifetime: refreshes
+  // are serialized, so at most one probe holds it at a time.
+  const lifetime = new AbortController();
   // Serialize refresh executions on a promise chain (ClaudeCodeAdapter pattern)
   // so overlapping triggers never interleave their gather/build/post.
   let refreshChain: Promise<void> = Promise.resolve();
@@ -261,7 +270,7 @@ export function createNativeStatusRefreshLoop(
       lastProbeAt = now().getTime();
       forceProbeOnNextEnabledRefresh = false;
       try {
-        probeCandidates = await options.runProbe();
+        probeCandidates = await options.runProbe(lifetime.signal);
       } catch {
         // A probe failure contributes no candidate; the codex card resolves to
         // its honest unavailable reason via the builder's empty-state path. This
@@ -401,6 +410,7 @@ export function createNativeStatusRefreshLoop(
     dispose(): void {
       if (disposed) return;
       disposed = true;
+      lifetime.abort();
       if (debounceTimer !== undefined) {
         clearTimeout(debounceTimer);
         debounceTimer = undefined;

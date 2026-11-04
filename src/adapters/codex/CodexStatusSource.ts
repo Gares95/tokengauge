@@ -99,7 +99,7 @@ export function codexNativeStatusBlocked(
 // tests supply a fake. The seam keeps this module free of any process spawn and
 // any `vscode` host-API import.
 export interface CodexProbeSeam {
-  run(): Promise<CodexProbeResult>;
+  run(signal?: AbortSignal): Promise<CodexProbeResult>;
 }
 
 export interface ProbeCodexNativeStatusOptions {
@@ -111,6 +111,9 @@ export interface ProbeCodexNativeStatusOptions {
   // Present only when enabled; the wiring constructs the probe behind the gate.
   readonly probe?: CodexProbeSeam;
   readonly now?: () => Date;
+  // Cancels an in-flight probe (see CodexAppServerProbe.run). Once it aborts,
+  // the call rejects with signal.reason instead of returning a result.
+  readonly signal?: AbortSignal;
 }
 
 // The gated probe result: either the honest blocker (disabled, or a closed
@@ -162,7 +165,7 @@ export async function probeCodexNativeStatusGated(
       ...NO_SPAWN_MARKERS,
     };
   }
-  const result = await options.probe.run();
+  const result = await options.probe.run(options.signal);
   const markers: CodexGatedProbeMarkers = {
     stage: result.stage,
     ioStage: result.ioStage,
