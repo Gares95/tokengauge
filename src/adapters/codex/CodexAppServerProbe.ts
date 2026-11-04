@@ -62,6 +62,10 @@ export interface CodexProbeRunRequest {
   // Sanitized child-exit seam — a code/signal BUCKET so a no-output
   // timeout is distinguishable from a child that exited. Bucket only; no raw code.
   readonly onExit?: (bucket: CodexProbeExitBucket) => void;
+  // Standard AbortSignal cancellation. Once aborted the runner starts no
+  // further process (neither codex nor the login-shell lookup), kills the
+  // children it started, and rejects with signal.reason.
+  readonly signal?: AbortSignal;
 }
 
 // Child-exit outcome bucket (no raw code/signal value crosses).
@@ -304,7 +308,16 @@ export class CodexAppServerProbe {
     this.cwd = options.cwd;
   }
 
-  public async run(): Promise<CodexProbeResult> {
+  // Cancellation follows standard AbortSignal semantics. Once `signal` aborts
+  // (the refresh loop was disposed: probe disabled, Codex card hidden, a
+  // cockpit setting changed, or the extension deactivated), run() starts
+  // nothing, writes no further JSON-RPC request (so no account/rateLimits/read
+  // goes out after consent is withdrawn), kills its child, and rejects with
+  // signal.reason. Abort wins any same-tick race with a reply. Cancellation is
+  // not a probe failure, so it records no diagnostic and yields no result. An
+  // abort after run() has settled has no effect.
+  public async run(signal?: AbortSignal): Promise<CodexProbeResult> {
+    signal?.throwIfAborted();
     // round 9: track the furthest child-process I/O milestone + a stderr-seen flag,
     // updated by the runner via onIo. By closure, these reflect the latest I/O state
     // by the time run() settles (success/timeout) — diagnosable, never raw output.
@@ -336,6 +349,7 @@ export class CodexAppServerProbe {
         exitBucket = bucket;
       },
       ...(this.cwd !== undefined ? { cwd: this.cwd } : {}),
+      ...(signal !== undefined ? { signal } : {}),
     };
 
     // Track the furthest stage reached. On a timeout the current
@@ -354,8 +368,14 @@ export class CodexAppServerProbe {
     try {
       run = await this.runner(request);
     } catch {
+      signal?.throwIfAborted();
       // A throwing runner is a run failure, never a crash. No stderr surfaces.
       return settleFail('codex_probe_failed', undefined, 'run_threw');
+    }
+    if (signal?.aborted) {
+      // The child finished starting after cancellation: never drive it.
+      run.kill();
+      signal.throwIfAborted();
     }
 
     if (!run.found || run.exchange === null) {
@@ -386,10 +406,12 @@ export class CodexAppServerProbe {
         params: { clientInfo: { name: 'tokengauge', version: this.extensionVersion } },
       });
       stage = 'initialize_sent';
-      const initialize = await this.withTimeout(exchange.readResult(1));
+      const initialize = await this.withTimeout(exchange.readResult(1), signal);
       stage = 'initialize_received';
       const codexVersion = fingerprintFromInitialize(initialize);
 
+      // Never send the backend-touching status call once cancelled.
+      signal?.throwIfAborted();
       // (2) initialized notification.
       exchange.writeLine({ jsonrpc: '2.0', method: 'initialized' });
       stage = 'initialized_sent';
@@ -397,7 +419,7 @@ export class CodexAppServerProbe {
       // (3) the ONE status call. NEVER account/read, NEVER thread/*.
       exchange.writeLine({ jsonrpc: '2.0', id: 2, method: 'account/rateLimits/read', params: {} });
       stage = 'ratelimits_sent';
-      const rawRateLimits = await this.withTimeout(exchange.readResult(2));
+      const rawRateLimits = await this.withTimeout(exchange.readResult(2), signal);
       stage = 'ratelimits_received';
 
       const parsed = CodexRateLimitsSchema.safeParse(rawRateLimits);
@@ -429,6 +451,8 @@ export class CodexAppServerProbe {
         exitBucket,
       };
     } catch (error) {
+      // Cancelled: `finally` kills the child; nothing is recorded or returned.
+      signal?.throwIfAborted();
       if (error === TIMEOUT_SENTINEL) {
         // `stage` is the last step reached — initialize_sent (app-server never
         // answered initialize) or ratelimits_sent (initialize ok, status hung).
@@ -488,20 +512,40 @@ export class CodexAppServerProbe {
     return env;
   }
 
-  private withTimeout<T>(p: Promise<T>): Promise<T> {
+  // Bound one reply by timeoutMs and stop waiting the moment `signal` aborts.
+  // The first of reply / timeout / abort settles; the timer and the abort
+  // listener are both removed, so a signal reused across every probe of a loop
+  // accumulates no listeners.
+  private withTimeout<T>(p: Promise<T>, signal?: AbortSignal): Promise<T> {
     return new Promise<T>((resolve, reject) => {
-      const timer = setTimeout(() => reject(TIMEOUT_SENTINEL), this.timeoutMs);
+      if (signal?.aborted) {
+        reject(signal.reason);
+        return;
+      }
+      const onAbort = (): void => {
+        clearTimeout(timer);
+        reject(signal?.reason);
+      };
+      const cleanup = (): void => {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
+      };
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(TIMEOUT_SENTINEL);
+      }, this.timeoutMs);
       // Don't keep the event loop alive solely for this timer.
       if (typeof timer.unref === 'function') {
         timer.unref();
       }
+      signal?.addEventListener('abort', onAbort, { once: true });
       p.then(
         (v) => {
-          clearTimeout(timer);
+          cleanup();
           resolve(v);
         },
         (e) => {
-          clearTimeout(timer);
+          cleanup();
           reject(e);
         },
       );

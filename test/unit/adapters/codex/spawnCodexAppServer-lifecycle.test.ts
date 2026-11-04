@@ -7,6 +7,8 @@
 // on a fixed sleep, so the outcome does not depend on machine speed.
 
 import * as assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { getEventListeners } from 'node:events';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -126,6 +128,172 @@ exec sleep 5
       // The lost reply is still reported through the existing closed reason.
       assert.equal(result.reason, 'codex_probe_timeout');
       assert.equal(result.stage, 'ratelimits_sent');
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+suite('SpawnCodexAppServer lifecycle — cancellation', () => {
+  test('An already-aborted signal starts no process and rejects with AbortError', async function () {
+    skipWindowsShellScripts(this);
+    const root = makeTempRoot();
+    const bin = path.join(root, 'bin');
+    fs.mkdirSync(bin);
+    writePidRecordingCodex(path.join(bin, 'codex'));
+    const pidFile = path.join(root, 'codex.pid');
+    const controller = new AbortController();
+    controller.abort();
+
+    const outcome = await spawnCodexAppServerExchange({
+      args: ['app-server'],
+      env: { PATH: bin, HOME: root, TG_PID_FILE: pidFile },
+      shell: false,
+      timeoutMs: 60_000,
+      cwd: root,
+      signal: controller.signal,
+    }).then(
+      (result) => ({ result }),
+      (error: unknown) => ({ error }),
+    );
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      assert.equal(fs.existsSync(pidFile), false, 'a cancelled probe must not spawn codex');
+      assert.ok('error' in outcome, 'expected a rejection');
+      assert.equal((outcome.error as Error).name, 'AbortError');
+    } finally {
+      if ('result' in outcome) outcome.result.kill();
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('Abort kills the spawned child, spares an unrelated codex process, and drops its listener', async function () {
+    skipWindowsShellScripts(this);
+    const root = makeTempRoot();
+    const bin = path.join(root, 'bin');
+    fs.mkdirSync(bin);
+    const codex = path.join(bin, 'codex');
+    writePidRecordingCodex(codex);
+    const ownPidFile = path.join(root, 'own.pid');
+    const otherPidFile = path.join(root, 'other.pid');
+    // A codex process TokenGauge did not start (e.g. the user's own session).
+    const unrelated = spawn(codex, ['app-server'], {
+      env: { PATH: bin, TG_PID_FILE: otherPidFile },
+      stdio: ['pipe', 'ignore', 'ignore'],
+    });
+    const controller = new AbortController();
+    let result: Awaited<ReturnType<typeof spawnCodexAppServerExchange>> | undefined;
+    try {
+      const otherPid = await readPid(otherPidFile);
+      result = await spawnCodexAppServerExchange({
+        args: ['app-server'],
+        env: { PATH: bin, HOME: root, TG_PID_FILE: ownPidFile },
+        shell: false,
+        // Far beyond the test: only the abort can end this child.
+        timeoutMs: 60_000,
+        cwd: root,
+        signal: controller.signal,
+      });
+      assert.equal(result.found, true);
+      const ownPid = await readPid(ownPidFile);
+
+      controller.abort();
+
+      assert.ok(await waitFor(() => !isAlive(ownPid), 2_000), 'abort must kill our child');
+      assert.equal(isAlive(otherPid), true, 'an unrelated codex process must survive');
+      assert.equal(getEventListeners(controller.signal, 'abort').length, 0);
+    } finally {
+      result?.kill();
+      unrelated.kill('SIGKILL');
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  // The extension-PATH lookup misses, so the runner asks the user's login
+  // shell where codex is (up to 2.5s). Disabling the probe during that lookup
+  // must end the chain: the shell is killed and codex is never started.
+  test('Abort during the login-shell lookup kills the shell and never starts codex', async function () {
+    skipWindowsShellScripts(this);
+    const root = makeTempRoot();
+    const emptyPath = path.join(root, 'empty-path');
+    const bin = path.join(root, 'bin');
+    fs.mkdirSync(emptyPath);
+    fs.mkdirSync(bin);
+    const codex = path.join(bin, 'codex');
+    writeExecutable(
+      codex,
+      '#!/bin/sh\n: > "$TG_MARK_DIR/codex-started"\nwhile IFS= read -r _line; do :; done\n',
+    );
+    // A stand-in login shell: records its pid, blocks until released, then
+    // prints the codex path as `command -v codex` would.
+    const shell = path.join(root, 'bash');
+    writeExecutable(
+      shell,
+      `#!/bin/sh
+PATH=/usr/bin:/bin
+export PATH
+echo $$ > "$TG_MARK_DIR/resolver.pid"
+while [ ! -e "$TG_MARK_DIR/release" ]; do sleep 0.02; done
+printf '%s\\n' "$TG_CODEX"
+`,
+    );
+    const controller = new AbortController();
+    let outcome:
+      | { result: Awaited<ReturnType<typeof spawnCodexAppServerExchange>> }
+      | { error: unknown }
+      | undefined;
+    try {
+      const pending = spawnCodexAppServerExchange({
+        args: ['app-server'],
+        env: { PATH: emptyPath, HOME: root, SHELL: shell, TG_MARK_DIR: root, TG_CODEX: codex },
+        shell: false,
+        timeoutMs: 60_000,
+        cwd: root,
+        signal: controller.signal,
+      }).then(
+        (result) => ({ result }),
+        (error: unknown) => ({ error }),
+      );
+      const resolverPid = await readPid(path.join(root, 'resolver.pid'));
+
+      controller.abort();
+      // Let a shell that ignored the abort finish its lookup.
+      fs.writeFileSync(path.join(root, 'release'), '');
+      outcome = await pending;
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      assert.equal(
+        fs.existsSync(path.join(root, 'codex-started')),
+        false,
+        'codex app-server was started after the probe was cancelled',
+      );
+      assert.ok('error' in outcome, 'expected a rejection');
+      assert.equal((outcome.error as Error).name, 'AbortError');
+      assert.ok(await waitFor(() => !isAlive(resolverPid), 2_000), 'abort must kill the shell');
+      assert.equal(getEventListeners(controller.signal, 'abort').length, 0);
+    } finally {
+      if (outcome !== undefined && 'result' in outcome) outcome.result.kill();
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('Lookups that find nothing leave no abort listener on a long-lived signal', async function () {
+    skipWindowsShellScripts(this);
+    const root = makeTempRoot();
+    const emptyPath = path.join(root, 'empty-path');
+    fs.mkdirSync(emptyPath);
+    const controller = new AbortController();
+    try {
+      const result = await spawnCodexAppServerExchange({
+        args: ['app-server'],
+        env: { PATH: emptyPath, HOME: root, SHELL: path.join(root, 'not-a-shell') },
+        shell: false,
+        timeoutMs: 1_000,
+        cwd: root,
+        signal: controller.signal,
+      });
+      assert.equal(result.found, false);
+      assert.equal(getEventListeners(controller.signal, 'abort').length, 0);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }

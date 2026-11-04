@@ -43,6 +43,10 @@ const MAX_NVM_VERSION_CANDIDATES = 48;
 // budget and never cuts short a slow but live exchange.
 const WATCHDOG_TIMEOUT_MULTIPLIER = 2;
 
+// Cancellation (request.signal): every process start below re-checks the
+// signal, so nothing is started once it has aborted; a child that finished
+// starting after the abort is killed instead of returned; the call rejects
+// with signal.reason.
 export async function spawnCodexAppServerExchange(
   request: CodexProbeRunRequest,
 ): Promise<CodexProbeRunResult> {
@@ -54,7 +58,7 @@ export async function spawnCodexAppServerExchange(
     request,
   );
   if (fromPath.found) {
-    return fromPath;
+    return keepUnlessAborted(fromPath, request.signal);
   }
 
   const resolved = await resolveCodexExecutableFromUserShell(request);
@@ -67,7 +71,7 @@ export async function spawnCodexAppServerExchange(
       request,
     );
     if (fromShell.found) {
-      return fromShell;
+      return keepUnlessAborted(fromShell, request.signal);
     }
   }
 
@@ -81,7 +85,7 @@ export async function spawnCodexAppServerExchange(
       request,
     );
     if (fromUserBin.found) {
-      return fromUserBin;
+      return keepUnlessAborted(fromUserBin, request.signal);
     }
   }
 
@@ -95,11 +99,23 @@ export async function spawnCodexAppServerExchange(
       request,
     );
     if (fromNvm.found) {
-      return fromNvm;
+      return keepUnlessAborted(fromNvm, request.signal);
     }
   }
 
+  request.signal?.throwIfAborted();
   return notFoundResult('nvm_not_found');
+}
+
+function keepUnlessAborted(
+  result: CodexProbeRunResult,
+  signal: AbortSignal | undefined,
+): CodexProbeRunResult {
+  if (signal?.aborted) {
+    result.kill();
+    signal.throwIfAborted();
+  }
+  return result;
 }
 
 function spawnCodexAppServerProcess(
@@ -109,7 +125,12 @@ function spawnCodexAppServerProcess(
   notFoundStage: CodexCliResolverStage,
   request: CodexProbeRunRequest,
 ): Promise<CodexProbeRunResult> {
-  return new Promise<CodexProbeRunResult>((resolve) => {
+  return new Promise<CodexProbeRunResult>((resolve, reject) => {
+    // Never start codex for a cancelled probe.
+    if (request.signal?.aborted) {
+      reject(request.signal.reason);
+      return;
+    }
     let settled = false;
     let stderr = '';
 
@@ -143,6 +164,7 @@ function spawnCodexAppServerProcess(
       if (killed) return;
       killed = true;
       clearTimeout(watchdog);
+      request.signal?.removeEventListener('abort', onAbort);
       try {
         child.kill('SIGKILL');
       } catch {
@@ -157,6 +179,11 @@ function spawnCodexAppServerProcess(
     if (typeof watchdog.unref === 'function') {
       watchdog.unref();
     }
+
+    // Abort kills this child, and only this child. kill() also removes the
+    // listener, so a signal shared by every probe of a loop accumulates none.
+    const onAbort = (): void => kill();
+    request.signal?.addEventListener('abort', onAbort, { once: true });
 
     // Resolve the run result exactly once. `found:false` only on ENOENT.
     const settle = (result: CodexProbeRunResult): void => {
@@ -308,6 +335,8 @@ async function resolveCodexExecutableFromUserShell(
   if (shellPath === null) {
     return null;
   }
+  // Never start the login-shell lookup for a cancelled probe.
+  request.signal?.throwIfAborted();
 
   const args = shellArgsForResolver(shellPath);
   const timeoutMs = Math.max(1, Math.min(USER_SHELL_RESOLVE_TIMEOUT_MS, request.timeoutMs));
@@ -349,12 +378,21 @@ async function resolveCodexExecutableFromUserShell(
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      request.signal?.removeEventListener('abort', onAbort);
       resolve(
         value === null
           ? null
           : { executable: value, resolver: 'user_shell', foundStage: 'user_shell_found' },
       );
     };
+
+    // Abort ends the lookup at once: the shell is killed and no executable is
+    // reported, so the caller's next abort check stops the whole chain.
+    const onAbort = (): void => {
+      kill();
+      settle(null);
+    };
+    request.signal?.addEventListener('abort', onAbort, { once: true });
 
     if (child.stdout === null) {
       kill();
