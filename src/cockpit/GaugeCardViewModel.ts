@@ -476,11 +476,25 @@ function viewModelFromState(
   // distinct from the absence blockers handled by withBlockerReason. It is never
   // used to blank a gauge.
   const isDegradedWithValue = isDegradedWithValueReason(blockerReason);
-  const session = withRetainedValueReason(
-    withBlockerReason(limitGauge(state.session, now, 'session'), blockerReason),
-    blockerReason,
-  );
-  const weekly = withBlockerReason(limitGauge(state.weekly, now, 'weekly'), blockerReason);
+  const sessionBase = limitGauge(state.session, now, 'session');
+  const weeklyBase = limitGauge(state.weekly, now, 'weekly');
+  // A retained-value reason explains a RETAINED value, never an absence. When the
+  // retained value is a promotable weekly window (Codex weekly-only), the absent
+  // 5h window is an optional absence: keep its own reason so weekly promotion
+  // still applies, and mark the retained weekly gauge degraded instead. Without
+  // this, the reason landed on the empty 5h gauge, disabled promotion, blanked
+  // the card/status bar, and left the weekly gauge claiming `fresh`.
+  const retainedWeeklyOnly =
+    isDegradedWithValue &&
+    sessionBase.usedPct === undefined &&
+    weeklyBase.usedPct !== undefined &&
+    canPromoteWeekly(agent, sessionBase);
+  const session = retainedWeeklyOnly
+    ? sessionBase
+    : withRetainedValueReason(withBlockerReason(sessionBase, blockerReason), blockerReason);
+  const weekly = retainedWeeklyOnly
+    ? withRetainedValueReason(weeklyBase, blockerReason)
+    : withBlockerReason(weeklyBase, blockerReason);
   const context = codexContextReason(
     agent,
     mutedContextOnCollision(

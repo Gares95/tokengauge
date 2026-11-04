@@ -20,6 +20,7 @@ import { createCockpitStabilizationPass } from '../../../src/cockpit/CockpitStab
 import {
   buildGaugeCardViewModels,
   type GaugeCardViewModel,
+  primaryLimitWindow,
 } from '../../../src/cockpit/GaugeCardViewModel';
 import {
   codexProbeVisibleForCockpit,
@@ -919,5 +920,88 @@ suite('GaugeCardViewModel model muted under collision', () => {
       now,
     });
     assert.equal(cardFor(cards, 'claude-code').model, 'claude-opus-4');
+  });
+});
+
+// Regression: a weekly-only Codex account (a supported response shape) must
+// RETAIN its last-known weekly value as DEGRADED after a probe failure / stale
+// hold, exactly like a 5h account does. Previously the retained-value reason was
+// overlaid onto the ABSENT 5h gauge, which disabled weekly promotion: the card
+// fell to a no-meter 'unavailable' state (status bar lost the value) while the
+// weekly gauge itself still claimed 'fresh' and drove risk.
+suite('GaugeCardViewModel weekly-only Codex retained-value degradation', () => {
+  for (const reason of [
+    'codex_probe_temporarily_unavailable',
+    'codex_probe_parse_failed_after_valid',
+    'codex_probe_no_data_after_valid',
+    'codex_probe_stale',
+  ] as const) {
+    test(`weekly-only held value + ${reason} stays the degraded primary meter`, () => {
+      const cards = buildGaugeCardViewModels({
+        candidates: [
+          codexCandidate({
+            session: undefined,
+            weekly: { usedPct: 30, leftPct: 70 },
+            unavailableReason: reason,
+          }),
+        ],
+        configuredAgents: ['codex'],
+        now,
+      });
+      const codex = cardFor(cards, 'codex');
+      assert.equal(codex.session.usedPct, undefined, 'no fabricated 5h value');
+      assert.equal(codex.weekly.usedPct, 30, 'weekly value retained');
+      assert.equal(codex.weekly.state, 'degraded', 'retained value is never shown as fresh');
+      assert.equal(codex.weekly.reason, reason);
+      assert.equal(codex.freshness, 'degraded', 'card keeps its meter, marked degraded');
+      assert.equal(codex.reason, reason);
+      assert.equal(codex.risk, 'ok');
+      assert.equal(primaryLimitWindow(codex)?.kind, 'weekly', 'status bar keeps the weekly meter');
+    });
+  }
+
+  test('5h-only and dual-window retained behavior is unchanged', () => {
+    const [dual] = buildGaugeCardViewModels({
+      candidates: [codexCandidate({ unavailableReason: 'codex_probe_temporarily_unavailable' })],
+      configuredAgents: ['codex'],
+      now,
+    });
+    assert.equal(dual?.session.state, 'degraded');
+    assert.equal(dual?.freshness, 'degraded');
+    assert.equal(primaryLimitWindow(dual as GaugeCardViewModel)?.kind, 'session');
+  });
+
+  test('A blocker with no retained value still blanks the weekly-only card honestly', () => {
+    const [card] = buildGaugeCardViewModels({
+      candidates: [
+        {
+          sourceTier: 'unknown',
+          producedAtMs: NOW.getTime(),
+          scope: { provider: 'openai', agent: 'codex' },
+          unavailableReason: 'codex_probe_timeout',
+        },
+      ],
+      configuredAgents: ['codex'],
+      now,
+    });
+    assert.equal(card?.freshness, 'unavailable');
+    assert.equal(card?.reason, 'codex_probe_timeout');
+    assert.equal(card?.weekly.usedPct, undefined);
+  });
+
+  test('Claude weekly-only (no 5h) is still not promoted', () => {
+    const [claude] = buildGaugeCardViewModels({
+      candidates: [
+        claudeCandidate({
+          session: undefined,
+          weekly: { usedPct: 40 },
+          unavailableReason: 'native_temporarily_unavailable',
+        }),
+      ],
+      configuredAgents: ['claude-code'],
+      now,
+    });
+    assert.equal(claude?.freshness, 'unavailable');
+    assert.equal(primaryLimitWindow(claude as GaugeCardViewModel), undefined);
   });
 });
