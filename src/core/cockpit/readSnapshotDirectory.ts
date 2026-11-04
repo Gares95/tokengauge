@@ -17,7 +17,8 @@
 //  - ONLY the explicitly configured directory is listed — never a `.claude`
 //    root, never recursive, never another location.
 //  - Only files matching the strict hash-derived name pattern are read, capped
-//    at MAX_SNAPSHOT_FILES; filenames carry HASHES (the writer derives them),
+//    at MAX_SNAPSHOT_FILES (more than that is reported, never partially
+//    inspected); filenames carry HASHES (the writer derives them),
 //    never raw paths or raw session ids, and no filename is ever surfaced in
 //    UI/diagnostics (statuses are closed strings; the count is not identity).
 //  - Every file body goes through the SAME strict `.strict()` snapshot schema,
@@ -43,7 +44,11 @@ import type { SourceCandidate } from './SourcePriorityResolver';
 export const ACTIVE_WRITER_TTL_MS = 90_000;
 
 // Hard cap on per-session files considered per tick — bounds I/O and rules out
-// unbounded directory scans by construction.
+// unbounded directory scans by construction. A directory holding MORE
+// pattern-matching names than this is reported as `snapshot_dir_too_many_files`
+// rather than inspected partially: without stat'ing every candidate there is
+// no way to know which files are newest, and an arbitrary (readdir-order)
+// subset can silently hide a live session.
 export const MAX_SNAPSHOT_FILES = 32;
 
 // The ONLY filenames directory mode will read: `<hex>-<hex>.json`, both parts
@@ -56,10 +61,60 @@ export interface SnapshotDirEntry {
   readonly mtimeMs: number;
 }
 
+// A bounded listing of the configured directory. `overCapacity` is true when
+// the directory holds more pattern-matching names than MAX_SNAPSHOT_FILES; the
+// lister then stats nothing and `entries` is empty.
+export interface SnapshotDirListing {
+  readonly entries: readonly SnapshotDirEntry[];
+  readonly overCapacity: boolean;
+}
+
+// The narrow per-entry stat shape the lister needs (node's Stats satisfies it).
+export interface SnapshotDirEntryStat {
+  isFile(): boolean;
+  readonly mtimeMs: number;
+}
+
+export interface ListSnapshotDirectoryDeps {
+  // Names in ONE directory, non-recursive. MUST throw when unreadable.
+  readonly readdir: (path: string) => readonly string[];
+  // Stats one entry; may throw when the entry vanished mid-listing.
+  readonly statEntry: (path: string) => SnapshotDirEntryStat;
+  readonly join: (...parts: string[]) => string;
+}
+
+// The single bounded directory lister shared by the cockpit and the Source
+// Doctor. Pattern-filters names BEFORE any stat, refuses to inspect a partial
+// subset when more snapshot names exist than the cap, and keeps only plain
+// files. Throws only when the directory itself cannot be listed.
+export function listSnapshotDirectory(
+  dirPath: string,
+  deps: ListSnapshotDirectoryDeps,
+): SnapshotDirListing {
+  const names = deps.readdir(dirPath).filter((name) => SNAPSHOT_FILE_PATTERN.test(name));
+  if (names.length > MAX_SNAPSHOT_FILES) {
+    return { entries: [], overCapacity: true };
+  }
+  const entries: SnapshotDirEntry[] = [];
+  for (const name of names) {
+    try {
+      const st = deps.statEntry(deps.join(dirPath, name));
+      if (st.isFile()) entries.push({ name, mtimeMs: st.mtimeMs });
+    } catch {
+      // per-file races (deleted mid-list) fail closed for that file
+    }
+  }
+  return { entries, overCapacity: false };
+}
+
 export type SnapshotDirectoryStatus =
   // The directory could not be listed (deleted / permissions) — treated like a
   // missing snapshot so the gate's after-valid retention applies.
   | 'snapshot_dir_unreadable'
+  // More hash-named snapshot files than MAX_SNAPSHOT_FILES: the bounded
+  // inspection cannot tell which sessions are active, so no value is offered
+  // (never a guess from an arbitrary subset). TokenGauge never deletes files.
+  | 'snapshot_dir_too_many_files'
   // No per-session file was rewritten within the active TTL (all sessions
   // closed/idle-beyond-TTL, or none ever wrote) — no active writer.
   | 'snapshot_dir_no_active_writer'
@@ -82,9 +137,10 @@ export interface SnapshotDirectoryReadResult {
 export interface ReadSnapshotDirectoryDeps {
   // Lists the configured directory's plain files (name + mtime). MUST throw (or
   // be undefined-safe at the call site) when the directory is unreadable. The
-  // production lister already pattern-filters and caps, but this module
-  // re-applies both — defence in depth, and the pure tests exercise it.
-  readonly listDir: (path: string) => readonly SnapshotDirEntry[];
+  // production lister (listSnapshotDirectory) already pattern-filters and
+  // enforces the cap, but this module re-applies both — defence in depth, and
+  // the pure tests exercise it with plain entry arrays.
+  readonly listDir: (path: string) => readonly SnapshotDirEntry[] | SnapshotDirListing;
   readonly readFile: (path: string) => string;
   readonly join: (...parts: string[]) => string;
   readonly hasher: IdHasher;
@@ -172,20 +228,25 @@ export function readSnapshotDirectoryCandidate(
 ): SnapshotDirectoryReadResult {
   const nowMs = deps.now().getTime();
 
-  let entries: readonly SnapshotDirEntry[];
+  let listing: SnapshotDirListing;
   try {
-    entries = deps.listDir(dirPath);
+    const listed = deps.listDir(dirPath);
+    listing = 'overCapacity' in listed ? listed : { entries: listed, overCapacity: false };
   } catch {
     return { status: 'snapshot_dir_unreadable', activeWriters: 0 };
   }
 
-  // Strict pattern + TTL + cap (newest first, so the cap can never evict a
-  // fresher writer in favor of a staler one).
-  const active = entries
-    .filter((e) => SNAPSHOT_FILE_PATTERN.test(e.name))
+  // Strict pattern + cap. Exceeding the cap is reported, never truncated: a
+  // truncated listing could omit a live session's file.
+  const matching = listing.entries.filter((e) => SNAPSHOT_FILE_PATTERN.test(e.name));
+  if (listing.overCapacity || matching.length > MAX_SNAPSHOT_FILES) {
+    return { status: 'snapshot_dir_too_many_files', activeWriters: 0 };
+  }
+
+  // TTL, newest first.
+  const active = matching
     .filter((e) => nowMs - e.mtimeMs <= ACTIVE_WRITER_TTL_MS)
-    .sort((a, b) => b.mtimeMs - a.mtimeMs)
-    .slice(0, MAX_SNAPSHOT_FILES);
+    .sort((a, b) => b.mtimeMs - a.mtimeMs);
 
   const parsed: SourceCandidate[] = [];
   for (const entry of active) {

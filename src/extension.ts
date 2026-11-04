@@ -181,12 +181,7 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
     const provider = cockpitProvider;
     const [
       { createNativeStatusRefreshLoop },
-      {
-        gatherNativeCockpitCandidates,
-        resolveStatuslineSnapshotPath,
-        MAX_SNAPSHOT_FILES,
-        SNAPSHOT_FILE_PATTERN,
-      },
+      { gatherNativeCockpitCandidates, resolveStatuslineSnapshotPath, listSnapshotDirectory },
       { createClaudeSnapshotStabilityGate },
       { createCodexProbeRetentionGate },
       { createCockpitStabilizationPass },
@@ -260,10 +255,11 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
           readFile: (p) => readFileSync(p, 'utf8'),
           // Per-session directory mode: the SAME setting may point at a
           // TokenGauge-owned snapshot directory (one file per session). The
-          // lister reads ONLY that directory, non-recursively, pattern-filters
-          // the hash-derived names BEFORE stat'ing, and caps the count — no
-          // broad scanning by construction. A missing/unreadable path is
-          // simply "not a directory" (single-file mode decides the rest).
+          // shared lister reads ONLY that directory, non-recursively,
+          // pattern-filters the hash-derived names BEFORE stat'ing, and reports
+          // a directory over the cap instead of truncating it — no broad
+          // scanning by construction. A missing/unreadable path is simply "not
+          // a directory" (single-file mode decides the rest).
           isDirectory: (p) => {
             try {
               return statSync(p).isDirectory();
@@ -271,20 +267,12 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
               return false;
             }
           },
-          listDir: (p) => {
-            const out: Array<{ name: string; mtimeMs: number }> = [];
-            for (const name of readdirSync(p)) {
-              if (!SNAPSHOT_FILE_PATTERN.test(name)) continue;
-              if (out.length >= MAX_SNAPSHOT_FILES) break;
-              try {
-                const st = statSync(join(p, name));
-                if (st.isFile()) out.push({ name, mtimeMs: st.mtimeMs });
-              } catch {
-                // per-file races (deleted mid-list) fail closed for that file
-              }
-            }
-            return out;
-          },
+          listDir: (p) =>
+            listSnapshotDirectory(p, {
+              readdir: (dir) => readdirSync(dir),
+              statEntry: (entry) => statSync(entry),
+              join,
+            }),
           join,
           diagnostics,
           codexProbeEnabled: cockpitProbeEnabled,

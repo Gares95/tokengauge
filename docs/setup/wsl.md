@@ -94,10 +94,13 @@ Directory-mode behavior (same on every platform): TokenGauge reads only that
 exact directory, non-recursively; it considers up to 32 hash-named snapshot
 files; it treats files rewritten within about 90 seconds as active; and it
 never deletes snapshot files. Filenames are derived from hashed identifiers —
-no raw session or workspace value appears on disk. Directory mode is
-poll-only — updates appear on the next poll (at most about 15 seconds), while
-single-file mode also watches the exact configured file. Both modes were
-executed against the live readers during WSL setup validation.
+no raw session or workspace value appears on disk. A directory holding more
+than 32 snapshot files is reported (Source Doctor: too many snapshot files)
+rather than inspected partially; remove the files of Claude Code sessions you
+have closed. Directory mode is poll-only — updates appear on the next poll (at
+most about 15 seconds), while single-file mode also watches the exact configured
+file. Both modes were executed against the live readers during WSL setup
+validation.
 
 ## Filesystem placement and `/mnt/<drive>` caveat
 

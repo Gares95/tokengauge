@@ -7,9 +7,22 @@
 // deterministic conservative merge, and the privacy shape of the merged output.
 
 import * as assert from 'node:assert/strict';
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  type Stats,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import * as path from 'node:path';
 import { createClaudeSnapshotStabilityGate } from '../../../src/cockpit/ClaudeSnapshotStabilityGate';
 import {
   ACTIVE_WRITER_TTL_MS,
+  listSnapshotDirectory,
   MAX_SNAPSHOT_FILES,
   readSnapshotDirectoryCandidate,
   SNAPSHOT_FILE_PATTERN,
@@ -316,6 +329,47 @@ suite('ReadSnapshotDirectory — active-writer detection', () => {
     assert.equal(unreadable.status, 'snapshot_dir_unreadable');
   });
 
+  test('More snapshot files than the cap → too_many_files, never an arbitrary subset', () => {
+    // 40 historical sessions plus one live one: the reader must not pick from
+    // a truncated listing; it reports the bounded inspection was exceeded.
+    const hex16 = (n: number) => n.toString(16).padStart(16, '0');
+    const files = Array.from({ length: MAX_SNAPSHOT_FILES + 8 }, (_, i) => ({
+      name: `${WS}-${hex16(i + 1)}.json`,
+      mtimeMs: NOW_MS - 3 * 86_400_000,
+      body: snapshotBody({ sessionHash: hex16(i + 1) }),
+    }));
+    files.push({
+      name: fileName(S1),
+      mtimeMs: NOW_MS - 5_000,
+      body: snapshotBody({ sessionHash: S1, usedPct: 42 }),
+    });
+    const out = read(files);
+    assert.equal(out.status, 'snapshot_dir_too_many_files');
+    assert.equal(out.candidate, undefined, 'no value is offered when inspection is incomplete');
+    assert.equal(out.activeWriters, 0);
+  });
+
+  test('Exactly the cap is still inspected; non-snapshot names never count toward it', () => {
+    const hex16 = (n: number) => n.toString(16).padStart(16, '0');
+    const files = Array.from({ length: MAX_SNAPSHOT_FILES - 1 }, (_, i) => ({
+      name: `${WS}-${hex16(i + 1)}.json`,
+      mtimeMs: NOW_MS - 3 * 86_400_000,
+      body: snapshotBody({ sessionHash: hex16(i + 1) }),
+    }));
+    files.push({
+      name: fileName(S1),
+      mtimeMs: NOW_MS - 5_000,
+      body: snapshotBody({ sessionHash: S1, usedPct: 42 }),
+    });
+    // Writer temp files and unrelated names are ignored entirely.
+    for (let i = 0; i < 100; i += 1) {
+      files.push({ name: `.${fileName(S2)}.tmp-${i}`, mtimeMs: NOW_MS, body: '{' });
+    }
+    const out = read(files);
+    assert.equal(out.status, 'snapshot_dir_loaded');
+    assert.equal(out.candidate?.session?.usedPct, 42);
+  });
+
   test('Exposes the documented TTL, cap, and strict filename pattern', () => {
     assert.equal(ACTIVE_WRITER_TTL_MS, 90_000);
     assert.ok(MAX_SNAPSHOT_FILES <= 64, 'listing must stay bounded');
@@ -323,6 +377,88 @@ suite('ReadSnapshotDirectory — active-writer detection', () => {
     assert.ok(!SNAPSHOT_FILE_PATTERN.test('anything-else.json'));
     assert.ok(!SNAPSHOT_FILE_PATTERN.test('aaaaaaaaaaaaaaaa-1111111111111111.json.tmp'));
     assert.ok(!SNAPSHOT_FILE_PATTERN.test('/etc/aaaaaaaaaaaaaaaa-1111111111111111.json'));
+  });
+});
+
+// The shared production lister against a REAL temporary directory (ext4/tmpfs/
+// NTFS readdir order is filesystem-defined, so a readdir-order cap can hide the
+// live session; the lister must never truncate).
+suite('ReadSnapshotDirectory — bounded production lister on a real directory', () => {
+  const hex16 = (n: number) => n.toString(16).padStart(16, '0');
+
+  function withTempDir(fn: (dir: string) => void): void {
+    const dir = mkdtempSync(path.join(tmpdir(), 'tokengauge-snapdir-'));
+    try {
+      fn(dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  function writeSnapshot(dir: string, session: string, ageMs: number, usedPct = 50): string {
+    const name = `${WS}-${session}.json`;
+    const file = path.join(dir, name);
+    writeFileSync(file, snapshotBody({ sessionHash: session, usedPct }));
+    const t = (Date.now() - ageMs) / 1000;
+    utimesSync(file, t, t);
+    return name;
+  }
+
+  function readReal(dir: string, statEntry: (p: string) => Stats = statSync) {
+    let stats = 0;
+    const result = readSnapshotDirectoryCandidate(dir, {
+      listDir: (p) =>
+        listSnapshotDirectory(p, {
+          readdir: (d) => readdirSync(d),
+          statEntry: (e) => {
+            stats += 1;
+            return statEntry(e);
+          },
+          join: path.join,
+        }),
+      readFile: (p) => readFileSync(p, 'utf8'),
+      join: path.join,
+      hasher,
+      now: () => new Date(),
+    });
+    return { result, stats };
+  }
+
+  test('Over the cap: reported as too_many_files with zero per-entry stats', () => {
+    withTempDir((dir) => {
+      for (let i = 0; i < 200; i += 1) writeSnapshot(dir, hex16(i + 1), 3 * 86_400_000);
+      writeSnapshot(dir, S1, 1_000, 42);
+      const { result, stats } = readReal(dir);
+      assert.equal(result.status, 'snapshot_dir_too_many_files');
+      assert.equal(result.candidate, undefined);
+      assert.equal(stats, 0, 'inspection stays bounded: nothing is stat-ed past the cap');
+    });
+  });
+
+  test('Within the cap: the live session is found wherever readdir places it', () => {
+    withTempDir((dir) => {
+      for (let i = 0; i < MAX_SNAPSHOT_FILES - 1; i += 1) {
+        writeSnapshot(dir, hex16(i + 1), 3 * 86_400_000);
+      }
+      writeSnapshot(dir, S1, 1_000, 42);
+      const { result, stats } = readReal(dir);
+      assert.equal(result.status, 'snapshot_dir_loaded');
+      assert.equal(result.candidate?.session?.usedPct, 42);
+      assert.equal(stats, MAX_SNAPSHOT_FILES);
+    });
+  });
+
+  test('An entry deleted between readdir and stat fails closed for that entry only', () => {
+    withTempDir((dir) => {
+      writeSnapshot(dir, S1, 1_000, 42);
+      const gone = writeSnapshot(dir, S2, 1_000, 99);
+      const { result } = readReal(dir, (p) => {
+        if (p.endsWith(gone)) rmSync(p);
+        return statSync(p);
+      });
+      assert.equal(result.status, 'snapshot_dir_loaded');
+      assert.equal(result.candidate?.session?.usedPct, 42);
+    });
   });
 });
 

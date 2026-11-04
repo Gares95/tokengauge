@@ -140,4 +140,63 @@ suite('Native Source Doctor — host report builder', () => {
     assert.equal(report.host.codexProbeScope, 'user');
     assert.equal(JSON.stringify(report).includes('/private/workspace'), false);
   });
+
+  // Regression: the Doctor lister used to stop at 32 names in READDIR order
+  // before anything was sorted by mtime, so once old per-session files piled up
+  // the live session's file could fall past the cap and the Doctor reported "no
+  // active writer" while a session was writing. More snapshot files than the
+  // bounded inspection can cover must be reported as such, without per-entry
+  // stats and without guessing from an arbitrary subset.
+  test('A directory holding more than 32 snapshot files is reported over capacity', async () => {
+    const { buildNativeSourceDoctorReportFromHost } = await import(
+      '../../../src/commands/nativeSourceDoctorReportBuilder.js'
+    );
+    const nowMs = Date.parse('2026-09-03T12:00:00.000Z');
+    const hex16 = (n: number) => n.toString(16).padStart(16, '0');
+    const stale = Array.from({ length: 40 }, (_, i) => `${hex16(i + 1)}-${hex16(i + 1)}.json`);
+    const live = `${hex16(0xabc)}-${hex16(0xdef)}.json`;
+    const liveBody = JSON.stringify({
+      timestamp: new Date(nowMs - 5_000).toISOString(),
+      session_id_hash: hex16(0xdef),
+      workspace_hash: hex16(0xabc),
+      model: { id: 'claude-test' },
+      rate_limits: { five_hour: { used_percentage: 42, resets_at: nowMs / 1000 + 3600 } },
+    });
+    let entryStats = 0;
+    const report = await buildNativeSourceDoctorReportFromHost({
+      ...baseDeps(),
+      snapshot: () => ({
+        'tokenGauge.display.cards.claude.visible': true,
+        'tokenGauge.display.cards.codex.visible': false,
+        'tokenGauge.providers.codex.nativeStatusProbe': false,
+        'tokenGauge.claude.statuslineSnapshotPath': '/cfg/snapshots',
+      }),
+      now: () => new Date(nowMs),
+      isDirectory: (location: string) => location === '/cfg/snapshots',
+      // The live session's file is listed LAST, past the 32-entry cap.
+      listDir: () => [...stale, live],
+      isFile: () => {
+        entryStats += 1;
+        return true;
+      },
+      fileMtimeMs: (location: string) => {
+        entryStats += 1;
+        return location.endsWith(live) ? nowMs - 5_000 : nowMs - 3 * 86_400_000;
+      },
+      readFile: (location: string) => {
+        if (location.endsWith(live)) return liveBody;
+        throw new Error('stale snapshot not expected to be read');
+      },
+      readStatsCacheCandidates: () => [],
+    });
+    const claude = report.providers.find((p) => p.provider === 'claude');
+    const ruleIds: string[] = claude?.findings.map((f) => f.ruleId) ?? [];
+    assert.ok(
+      ruleIds.includes('doctor_claude_snapshot_directory_too_many_files'),
+      `expected an over-capacity finding, got ${ruleIds.join(', ')}`,
+    );
+    assert.ok(!ruleIds.includes('doctor_claude_snapshot_directory_no_active_writer'));
+    assert.equal(entryStats, 0, 'over capacity must not stat entries beyond the bound');
+    assert.equal(JSON.stringify(report).includes('/cfg/snapshots'), false);
+  });
 });

@@ -8,9 +8,8 @@ import type {
 } from '../adapters/codex/CodexAppServerProbe';
 import type { CodexProbeRetentionDiagnosticsSnapshot } from '../cockpit/CodexProbeRetentionGate';
 import {
-  MAX_SNAPSHOT_FILES,
+  listSnapshotDirectory,
   resolveStatuslineSnapshotPath,
-  SNAPSHOT_FILE_PATTERN,
 } from '../cockpit/gatherNativeCockpitCandidates';
 import type { CockpitLoopDiagnosticsSnapshot } from '../cockpit/NativeStatusRefreshLoop';
 import {
@@ -113,18 +112,18 @@ export async function buildNativeSourceDoctorReportFromHost(
       statsCacheLocation: statsCachePath,
       readFile: deps.readFile,
       isDirectory: deps.isDirectory,
-      listDir: (location) => {
-        const out: Array<{ name: string; mtimeMs: number }> = [];
-        for (const name of deps.listDir(location)) {
-          if (!SNAPSHOT_FILE_PATTERN.test(name)) continue;
-          if (out.length >= MAX_SNAPSHOT_FILES) break;
-          const child = deps.join(location, name);
-          if (!deps.isFile(child)) continue;
-          const mtimeMs = deps.fileMtimeMs(child);
-          if (mtimeMs !== undefined) out.push({ name, mtimeMs });
-        }
-        return out;
-      },
+      // The same bounded lister as the cockpit: more snapshot names than the
+      // cap is reported, never inspected as an arbitrary readdir-order subset.
+      listDir: (location) =>
+        listSnapshotDirectory(location, {
+          readdir: deps.listDir,
+          statEntry: (child) => {
+            const mtimeMs = deps.fileMtimeMs(child);
+            if (mtimeMs === undefined) throw new Error('entry unavailable');
+            return { isFile: () => deps.isFile(child), mtimeMs };
+          },
+          join: deps.join,
+        }),
       join: deps.join,
       hasher,
       now: deps.now,

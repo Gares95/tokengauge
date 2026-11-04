@@ -431,6 +431,35 @@ suite('GatherNativeCockpitCandidates — snapshot directory dispatch', () => {
     assert.equal(claude?.unavailableReason, undefined);
   });
 
+  test('A directory over the snapshot-file cap records too_many_files and offers no value', () => {
+    const statuses: Array<{ status: string; severity: string }> = [];
+    const candidates = gatherNativeCockpitCandidates({
+      statuslineSnapshotPath: '/cfg/snapshots',
+      statsCachePath: '/none/stats-cache.json',
+      hasher,
+      now,
+      readFile: () => {
+        throw new Error('no snapshot may be read when inspection is over capacity');
+      },
+      isDirectory: (p) => p === '/cfg/snapshots',
+      listDir: () => ({ entries: [], overCapacity: true }),
+      join: (...parts: string[]) => parts.join('/'),
+      diagnostics: {
+        record: (e) => {
+          if (e.ruleId === 'statusline-snapshot') {
+            statuses.push({ status: e.status, severity: e.severity });
+          }
+        },
+      },
+      codexProbeEnabled: false,
+    });
+    assert.deepEqual(statuses, [{ status: 'snapshot_dir_too_many_files', severity: 'warning' }]);
+    assert.equal(
+      candidates.some((c) => c.sourceTier === 'statusline_snapshot'),
+      false,
+    );
+  });
+
   test('A FILE path (isDirectory false) keeps the legacy single-file reader', () => {
     const statuses: string[] = [];
     const body = dirBody('1111111111111111', 55);

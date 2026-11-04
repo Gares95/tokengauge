@@ -1,9 +1,11 @@
 import { readStatsCacheCandidates as defaultReadStatsCacheCandidates } from '../../adapters/claudeCode/ClaudeStatsCacheSource';
 import type { IdHasher } from '../../security/IdHasher';
 import {
+  MAX_SNAPSHOT_FILES,
   readSnapshotDirectoryCandidate,
   type SnapshotDirEntry,
   type SnapshotDirectoryStatus,
+  type SnapshotDirListing,
 } from '../cockpit/readSnapshotDirectory';
 import {
   readStatuslineSnapshotCandidate,
@@ -18,7 +20,7 @@ export interface ClaudeNativeSourceDoctorInput {
   readonly statsCacheLocation?: string;
   readonly readFile: (location: string) => string;
   readonly isDirectory: (location: string) => boolean;
-  readonly listDir: (location: string) => readonly SnapshotDirEntry[];
+  readonly listDir: (location: string) => readonly SnapshotDirEntry[] | SnapshotDirListing;
   readonly join: (...parts: string[]) => string;
   readonly hasher: IdHasher;
   readonly now: () => Date;
@@ -181,6 +183,16 @@ function directoryFinding(
         action:
           'Confirm TokenGauge is configured from the same local, WSL, SSH, or container side as Claude Code.',
         facts,
+      };
+    case 'snapshot_dir_too_many_files':
+      return {
+        ruleId: 'doctor_claude_snapshot_directory_too_many_files',
+        severity: 'blocked',
+        title: 'Claude snapshot directory holds too many snapshot files',
+        message: `The directory holds more than ${MAX_SNAPSHOT_FILES} hash-named snapshot files, so TokenGauge cannot tell which sessions are active within its bounded check and shows no directory value instead of guessing.`,
+        action:
+          'Remove snapshot files left by Claude Code sessions you have closed. TokenGauge never deletes snapshot files itself.',
+        facts: [...facts, { name: 'snapshot file limit', value: MAX_SNAPSHOT_FILES }],
       };
   }
 }

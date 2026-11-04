@@ -26,15 +26,18 @@ import type { CockpitFieldReason } from '../core/cockpit/CockpitState';
 import {
   readSnapshotDirectoryCandidate,
   type SnapshotDirEntry,
+  type SnapshotDirListing,
 } from '../core/cockpit/readSnapshotDirectory';
 import { readStatuslineSnapshotCandidate } from '../core/cockpit/readStatuslineSnapshot';
 import type { SourceCandidate } from '../core/cockpit/SourcePriorityResolver';
 import type { IdHasher } from '../security/IdHasher';
 
-// Re-exported so the production wiring (extension.ts) can pattern-filter and
-// cap the directory listing before stat'ing, using the single source of truth.
+// Re-exported so the production wiring (extension.ts, the Doctor builder) uses
+// the single bounded lister: pattern-filter before stat'ing, and report a
+// directory over the cap instead of truncating it in readdir order.
 export {
   ACTIVE_WRITER_TTL_MS,
+  listSnapshotDirectory,
   MAX_SNAPSHOT_FILES,
   SNAPSHOT_FILE_PATTERN,
 } from '../core/cockpit/readSnapshotDirectory';
@@ -91,7 +94,7 @@ export interface GatherNativeCockpitCandidatesDeps {
   // files (name + mtimeMs), throwing when unreadable; join builds the per-file
   // path for readFile.
   readonly isDirectory?: (path: string) => boolean;
-  readonly listDir?: (path: string) => readonly SnapshotDirEntry[];
+  readonly listDir?: (path: string) => readonly SnapshotDirEntry[] | SnapshotDirListing;
   readonly join?: (...parts: string[]) => string;
   readonly readStatsCache?: typeof readStatsCacheCandidates;
   readonly diagnostics?: CockpitGatherDiagnosticsLike;

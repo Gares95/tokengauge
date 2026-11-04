@@ -18,6 +18,7 @@ export type NativeSourceDoctorRuleId =
   | 'doctor_claude_snapshot_directory_multi_writer'
   | 'doctor_claude_snapshot_directory_no_active_writer'
   | 'doctor_claude_snapshot_directory_unreadable'
+  | 'doctor_claude_snapshot_directory_too_many_files'
   | 'doctor_claude_stats_cache_loaded'
   | 'doctor_claude_stats_cache_unavailable'
   | 'doctor_codex_card_hidden'
