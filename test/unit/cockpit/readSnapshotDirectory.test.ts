@@ -284,13 +284,18 @@ suite('ReadSnapshotDirectory — active-writer detection', () => {
       {
         name: fileName(S1),
         mtimeMs: NOW_MS - 5_000,
-        body: snapshotBody({ sessionHash: S1, usedPct: 44 }),
+        body: snapshotBody({ sessionHash: S1, usedPct: 44, model: 'claude-fable-5' }),
       },
       { name: fileName(S2), mtimeMs: NOW_MS - 5_000, body: '{ torn mid-rename' },
     ]);
-    // The torn file neither counts as a writer nor breaks the healthy one.
-    assert.equal(out.status, 'snapshot_dir_loaded');
-    assert.equal(out.activeWriters, 1);
+    // The torn file contributes no value and does not break the healthy one,
+    // but its fresh mtime proves a second session is writing: the state stays
+    // multi-writer (session-specific fields muted), never a lone Live session.
+    assert.equal(out.status, 'snapshot_dir_multi_writer');
+    assert.equal(out.activeWriters, 2);
+    assert.equal(out.candidate?.unavailableReason, 'snapshot_writer_collision');
+    assert.equal(out.candidate?.session?.usedPct, 44);
+    assert.equal(out.candidate?.model, undefined);
   });
 
   test('A single active pre-first-response session reads as missing_rate_limits', () => {
@@ -545,5 +550,56 @@ suite('ReadSnapshotDirectory — idle multi-session persistence through the gate
     assert.equal(claude?.unavailableReason, undefined, 'one-stage recovery to Live');
     assert.equal(claude?.session?.usedPct, 81);
     assert.equal(claude?.model, 'claude-fable-5', 'session-specific fields return');
+  });
+
+  // Regression: a file whose mtime is inside the TTL proves its session is
+  // writing, even on a tick where its body cannot be used (a non-atomic writer
+  // caught mid-write, a transient lock or permission error, a file removed
+  // between listing and reading, a rejected payload). Dropping it from the
+  // writer count flipped two live sessions to a single "Live" session for that
+  // tick, un-muting the OTHER session's model/cost/context, then flipped back.
+  for (const [kind, s2Body] of [
+    ['unreadable (EACCES / vanished)', undefined],
+    ['torn mid-write', '{ "source": "claude_statusline", "mod'],
+    ['rejected payload', JSON.stringify({ model: { id: 'x' }, cwd: '/raw/path' })],
+  ] as const) {
+    test(`An active session whose file is ${kind} for one tick keeps the multi-writer state`, () => {
+      let t = NOW_MS;
+      const gate = createClaudeSnapshotStabilityGate({ now: () => new Date(t) });
+      const s1 = (at: number) => ({
+        name: fileName(S1),
+        mtimeMs: at - 4_000,
+        body: snapshotBody({ sessionHash: S1, usedPct: 70, model: 'model-s1', costUsd: 3 }),
+      });
+      const s2Good = (at: number) => ({
+        name: fileName(S2),
+        mtimeMs: at - 2_000,
+        body: snapshotBody({ sessionHash: S2, usedPct: 80, model: 'model-s2', costUsd: 7 }),
+      });
+      const ticks = [
+        [s1(t), s2Good(t)],
+        [s1(t + 10_000), { ...s2Good(t + 10_000), body: s2Body }],
+        [s1(t + 20_000), s2Good(t + 20_000)],
+      ];
+      for (const [i, files] of ticks.entries()) {
+        const tick = read(files as Array<{ name: string; mtimeMs: number; body?: string }>, t);
+        assert.equal(tick.status, 'snapshot_dir_multi_writer', `tick ${i} status`);
+        assert.equal(tick.activeWriters, 2, `tick ${i} counts both live sessions`);
+        const out = gate.step(tick.candidate ? [tick.candidate] : []);
+        const claude = out.find((c) => c.scope.agent === 'claude-code');
+        assert.equal(claude?.unavailableReason, 'snapshot_writer_collision', `tick ${i} label`);
+        assert.equal(claude?.model, undefined, `tick ${i}: no session's model is shown`);
+        assert.equal(claude?.cost, undefined, `tick ${i}: no session's cost is shown`);
+        assert.equal(claude?.session?.usedPct, 80, `tick ${i}: conservative value holds`);
+        t += 10_000;
+      }
+    });
+  }
+
+  test('A lone active file that fails to parse still offers no value (no invented writer)', () => {
+    const out = read([{ name: fileName(S2), mtimeMs: NOW_MS - 2_000, body: '{ torn' }]);
+    assert.equal(out.status, 'snapshot_dir_no_active_writer');
+    assert.equal(out.candidate, undefined);
+    assert.equal(out.activeWriters, 0);
   });
 });

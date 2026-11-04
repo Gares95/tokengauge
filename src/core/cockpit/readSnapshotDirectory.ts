@@ -126,13 +126,16 @@ export type SnapshotDirectoryStatus =
   // (pre-first-response) — mirrors single-file missing_rate_limits.
   | 'snapshot_dir_missing_rate_limits'
   // Two or more active writers — the merged conservative multi-writer state.
+  // Values come only from the files that parsed; an active file that could
+  // not be used this tick still counts as a writer.
   | 'snapshot_dir_multi_writer';
 
 export interface SnapshotDirectoryReadResult {
   readonly status: SnapshotDirectoryStatus;
   readonly candidate?: SourceCandidate;
-  // How many active per-session snapshots parsed cleanly this tick. A bounded
-  // small integer — carries no identity.
+  // How many active (mtime within the TTL) per-session snapshot files were
+  // counted this tick; 0 when none of them parsed. A bounded small integer —
+  // carries no identity.
   readonly activeWriters: number;
 }
 
@@ -252,8 +255,10 @@ export function readSnapshotDirectoryCandidate(
 
   const parsed: SourceCandidate[] = [];
   for (const entry of active) {
-    // A torn/mid-rename or leaky file fails closed for THIS file only — it is
-    // not counted as a writer this tick (it will parse on the next rewrite).
+    // A torn/mid-rename, unreadable, or leaky file fails closed for THIS file
+    // only: it contributes no value (and its body is never surfaced). Its fresh
+    // mtime still proves a session is writing, so it keeps counting toward
+    // session presence below.
     try {
       const raw = deps.readFile(deps.join(dirPath, entry.name));
       parsed.push(
@@ -268,7 +273,10 @@ export function readSnapshotDirectoryCandidate(
     return { status: 'snapshot_dir_no_active_writer', activeWriters: 0 };
   }
 
-  if (parsed.length === 1) {
+  // Exactly one active file, and it parsed: the single-session Live path. Any
+  // other active file — even one unusable this tick — means more than one
+  // session is writing, so session-specific fields must stay muted.
+  if (active.length === 1) {
     const candidate = parsed[0] as SourceCandidate;
     const valueless = candidate.session === undefined && candidate.weekly === undefined;
     return {
@@ -283,6 +291,6 @@ export function readSnapshotDirectoryCandidate(
   return {
     status: 'snapshot_dir_multi_writer',
     candidate: mergeActiveWriters(parsed, nowMs),
-    activeWriters: parsed.length,
+    activeWriters: active.length,
   };
 }
