@@ -145,9 +145,20 @@ export function snapshotToCockpitCandidate(
   // (the stability gate then falls back to its capturedAt-unavailable tie-break).
   const snapshotCapturedAtMs = parseSnapshotTimestamp(snapshot.timestamp);
 
+  // Freshness is the age of the SAMPLE, not of this read: the loop re-reads the
+  // same file every poll, so a read-time stamp would keep an hours-old snapshot
+  // "fresh" forever. Anchor producedAtMs to the writer's capture time when it is
+  // valid and not in the future; a future-dated (clock-skewed), absent, or
+  // unparseable timestamp falls back to the read time.
+  const nowMs = deps.now().getTime();
+  const producedAtMs =
+    snapshotCapturedAtMs !== undefined && snapshotCapturedAtMs < nowMs
+      ? snapshotCapturedAtMs
+      : nowMs;
+
   return {
     sourceTier: 'statusline_snapshot',
-    producedAtMs: deps.now().getTime(),
+    producedAtMs,
     ...(snapshotCapturedAtMs !== undefined ? { snapshotCapturedAtMs } : {}),
     scope: { provider: 'anthropic', agent: 'claude-code', model: snapshot.model.id },
     confidence: 'high',

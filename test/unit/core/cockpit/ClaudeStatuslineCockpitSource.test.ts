@@ -10,7 +10,9 @@
 import * as assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { buildGaugeCardViewModels } from '../../../../src/cockpit/GaugeCardViewModel';
 import { snapshotToCockpitCandidate } from '../../../../src/core/cockpit/ClaudeStatuslineCockpitSource';
+import { resolve } from '../../../../src/core/cockpit/SourcePriorityResolver';
 import { PrivacyViolationError } from '../../../../src/core/diagnostics/errors';
 import { IdHasher } from '../../../../src/security/IdHasher';
 import { findRepoRoot } from '../../../_helpers/repoRoot';
@@ -196,5 +198,83 @@ suite('ClaudeStatuslineCockpitSource: statusLine -> cockpit candidate', () => {
     assert.ok(!serialized.includes('/Users/'));
     assert.ok(!serialized.includes('/home/'));
     assert.ok(!serialized.includes('.git'));
+  });
+});
+
+// Regression: the card's freshness must follow the WRITER's capture time, not
+// the read time. Every poll re-reads the snapshot file, so stamping
+// producedAtMs with the read clock made a sample written hours ago (Claude Code
+// idle/closed, file left on disk) render as "fresh / high confidence" forever,
+// contradicting the documented ~5 minute staleness bound and the Source
+// Doctor's own stale verdict for the same file.
+suite('ClaudeStatuslineCockpitSource: freshness anchored to the writer timestamp', () => {
+  const NOW_MS = Date.parse('2026-06-11T12:00:00.000Z');
+  const fixedNow = (): Date => new Date(NOW_MS);
+
+  function snapshotWrittenAt(timestamp: string | undefined): Record<string, unknown> {
+    return {
+      ...(timestamp !== undefined ? { timestamp } : {}),
+      model: { id: 'claude-opus-4' },
+      rate_limits: {
+        five_hour: { used_percentage: 42, resets_at: Math.floor(NOW_MS / 1000) + 3600 },
+      },
+    };
+  }
+
+  test('A past writer timestamp becomes the candidate producedAtMs', () => {
+    const writtenAt = '2026-06-11T10:00:00.000Z';
+    const candidate = snapshotToCockpitCandidate(snapshotWrittenAt(writtenAt), {
+      hasher,
+      now: fixedNow,
+    });
+    assert.equal(candidate.snapshotCapturedAtMs, Date.parse(writtenAt));
+    assert.equal(candidate.producedAtMs, Date.parse(writtenAt));
+  });
+
+  test('A snapshot written 2h ago resolves stale (degraded), never fresh', () => {
+    const candidate = snapshotToCockpitCandidate(snapshotWrittenAt('2026-06-11T10:00:00.000Z'), {
+      hasher,
+      now: fixedNow,
+    });
+    const state = resolve([candidate], { now: fixedNow });
+    assert.equal(state.session.usedPct.available, true, 'value is still shown');
+    assert.equal(state.session.usedPct.value, 42);
+    assert.equal(state.session.usedPct.reason, 'native_status_stale');
+    assert.equal(state.session.usedPct.confidence, 'low');
+    const [card] = buildGaugeCardViewModels({
+      candidates: [candidate],
+      configuredAgents: ['claude-code'],
+      now: fixedNow,
+    });
+    assert.equal(card?.freshness, 'stale');
+    assert.equal(card?.session.state, 'stale');
+  });
+
+  test('A snapshot written within the freshness window stays fresh', () => {
+    const candidate = snapshotToCockpitCandidate(snapshotWrittenAt('2026-06-11T11:58:00.000Z'), {
+      hasher,
+      now: fixedNow,
+    });
+    const state = resolve([candidate], { now: fixedNow });
+    assert.equal(state.session.usedPct.reason, undefined);
+  });
+
+  test('A future-dated (clock-skewed) timestamp is clamped to the read time, never negative age', () => {
+    const candidate = snapshotToCockpitCandidate(snapshotWrittenAt('2026-06-11T18:00:00.000Z'), {
+      hasher,
+      now: fixedNow,
+    });
+    assert.equal(candidate.producedAtMs, NOW_MS);
+  });
+
+  test('An absent or unparseable timestamp keeps the read time (unchanged legacy behavior)', () => {
+    for (const ts of [undefined, 'not-a-date']) {
+      const candidate = snapshotToCockpitCandidate(snapshotWrittenAt(ts), {
+        hasher,
+        now: fixedNow,
+      });
+      assert.equal(candidate.snapshotCapturedAtMs, undefined);
+      assert.equal(candidate.producedAtMs, NOW_MS);
+    }
   });
 });

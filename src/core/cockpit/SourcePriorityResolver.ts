@@ -49,9 +49,9 @@ export interface SourceCandidate {
   readonly sourceTier: SourceTier;
   readonly producedAtMs: number;
   // The WRITER's own capture time (parsed from the snapshot
-  // `timestamp`), distinct from the read-time `producedAtMs`. The Claude snapshot
-  // stability gate uses it as the monotonic key so a watch/poll re-read of an
-  // older-captured value can never replace a newer-accepted one. Undefined when
+  // `timestamp`). For the Claude statusLine candidate `producedAtMs` is anchored
+  // to this value when it is valid and not future-dated (otherwise read time), so
+  // an unchanged file re-read every poll still ages toward stale. Undefined when
   // the snapshot carries no usable timestamp.
   readonly snapshotCapturedAtMs?: number;
   readonly scope: {

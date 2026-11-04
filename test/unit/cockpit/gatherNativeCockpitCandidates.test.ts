@@ -122,7 +122,9 @@ suite('SnapshotToCockpitCandidate carries the writer capture time', () => {
       deps,
     );
     assert.equal(candidate.snapshotCapturedAtMs, new Date('2026-06-13T11:59:30.000Z').getTime());
-    assert.equal(candidate.producedAtMs, NOW.getTime());
+    // Freshness follows the sample's capture time (not the re-read time), so a
+    // valid past writer timestamp anchors producedAtMs.
+    assert.equal(candidate.producedAtMs, new Date('2026-06-13T11:59:30.000Z').getTime());
   });
 
   test('An absent timestamp leaves snapshotCapturedAtMs undefined', () => {
