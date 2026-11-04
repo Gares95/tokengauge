@@ -244,6 +244,9 @@ export function createNativeStatusRefreshLoop(
       recordDiagnostic('cockpit-refresh-failed');
       return;
     }
+    // Disposed while gathering (settings rebuild / deactivate): this loop's
+    // configuration is obsolete — never probe or post on its behalf.
+    if (disposed) return;
 
     let probeCandidates: readonly SourceCandidate[] = [];
     const willProbe = probeDue(trigger) && options.runProbe !== undefined;
@@ -265,6 +268,9 @@ export function createNativeStatusRefreshLoop(
         // is honest, not fabricated — so we still post below.
         probeCandidates = [];
       }
+      // Disposed while the probe was in flight: a newer loop now owns the
+      // shared cockpit/status-bar post target, so drop this stale result.
+      if (disposed) return;
     }
 
     const merged = probeCandidates.length > 0 ? [...candidates, ...probeCandidates] : candidates;

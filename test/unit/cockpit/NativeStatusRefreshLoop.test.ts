@@ -1838,3 +1838,83 @@ suite('NativeStatusRefreshLoop — stabilization pass (expiry + no-flap)', () =>
     loop.dispose();
   });
 });
+
+// Regression: a settings change disposes the old loop and builds a new one that
+// posts to the SAME cockpit provider + status bar. A refresh that was already
+// awaiting gather or a (multi-second) Codex probe when dispose() ran must NOT
+// post afterwards — otherwise the old configuration's result (e.g. a live Codex
+// gauge after the probe was disabled, or a card the user just hid) overwrites
+// the new loop's correct state until its next poll.
+suite('NativeStatusRefreshLoop — no post after dispose', () => {
+  function deferred<T>() {
+    let resolveFn: (value: T) => void = () => {};
+    const promise = new Promise<T>((r) => {
+      resolveFn = r;
+    });
+    return { promise, resolve: resolveFn };
+  }
+
+  test('A probe in flight when the loop is disposed never posts its result', async () => {
+    const timers = fakeTimers();
+    const probe = deferred<readonly SourceCandidate[]>();
+    let probeCalls = 0;
+    const posts: unknown[] = [];
+    const loop = createNativeStatusRefreshLoop(
+      baseOptions({
+        snapshotPaths: [],
+        probeEnabled: true,
+        runProbe: () => {
+          probeCalls += 1;
+          return probe.promise;
+        },
+        post: (vms: unknown) => posts.push(vms),
+        setIntervalFn: timers.setIntervalFn,
+        clearIntervalFn: timers.clearIntervalFn,
+      }),
+    );
+    await settle();
+    assert.equal(probeCalls, 1, 'startup refresh is awaiting the probe');
+    assert.equal(posts.length, 0);
+
+    loop.dispose();
+    probe.resolve([
+      {
+        sourceTier: 'codex_status_snapshot',
+        producedAtMs: Date.now(),
+        scope: { provider: 'openai', agent: 'codex' },
+        session: { usedPct: 55 },
+      },
+    ]);
+    await settle();
+    await settle();
+    assert.equal(posts.length, 0, 'a disposed loop must not overwrite the newer loop state');
+  });
+
+  test('A gather in flight when the loop is disposed never posts or probes', async () => {
+    const timers = fakeTimers();
+    const gather = deferred<readonly SourceCandidate[]>();
+    let probeCalls = 0;
+    const posts: unknown[] = [];
+    const loop = createNativeStatusRefreshLoop(
+      baseOptions({
+        snapshotPaths: [],
+        probeEnabled: true,
+        gatherCandidates: () => gather.promise,
+        runProbe: async () => {
+          probeCalls += 1;
+          return [];
+        },
+        post: (vms: unknown) => posts.push(vms),
+        setIntervalFn: timers.setIntervalFn,
+        clearIntervalFn: timers.clearIntervalFn,
+      }),
+    );
+    await settle();
+    loop.dispose();
+    gather.resolve([claudeCandidate()]);
+    await settle();
+    await settle();
+    assert.equal(probeCalls, 0, 'no Codex spawn after dispose');
+    assert.equal(posts.length, 0, 'no post after dispose');
+  });
+});
