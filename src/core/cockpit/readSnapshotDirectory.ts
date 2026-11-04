@@ -210,15 +210,19 @@ function mergeMetric(
 // SESSION-SPECIFIC fields — model, context, cost, and the identity hashes —
 // are intentionally OMITTED: with several live sessions they belong to no one
 // session, and the card must not present one session's values as the truth.
+// Freshness is that of the OLDEST contributing sample: each input's
+// producedAtMs is already its writer's capture time (or read time when absent
+// or future-dated), and a merge is never fresher than what it was built from.
 function mergeActiveWriters(
   candidates: readonly SourceCandidate[],
   nowMs: number,
 ): SourceCandidate {
   const session = mergeMetric(candidates, 'session');
   const weekly = mergeMetric(candidates, 'weekly');
+  const producedAtMs = candidates.reduce((acc, c) => Math.min(acc, c.producedAtMs), nowMs);
   return {
     sourceTier: 'statusline_snapshot',
-    producedAtMs: nowMs,
+    producedAtMs,
     scope: { provider: 'anthropic', agent: 'claude-code' },
     confidence: 'high',
     ...(session !== undefined ? { session } : {}),

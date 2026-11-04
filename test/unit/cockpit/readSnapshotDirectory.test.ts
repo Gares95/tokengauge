@@ -28,6 +28,7 @@ import {
   SNAPSHOT_FILE_PATTERN,
   type SnapshotDirEntry,
 } from '../../../src/core/cockpit/readSnapshotDirectory';
+import { resolve, type SourceCandidate } from '../../../src/core/cockpit/SourcePriorityResolver';
 import { IdHasher } from '../../../src/security/IdHasher';
 
 const NOW = new Date('2026-07-04T12:00:00.000Z');
@@ -332,6 +333,49 @@ suite('ReadSnapshotDirectory — active-writer detection', () => {
       now: () => NOW,
     });
     assert.equal(unreadable.status, 'snapshot_dir_unreadable');
+  });
+
+  // Regression: the merged multi-writer candidate was stamped with the READ
+  // time, so samples whose writer timestamps were long past rendered fresh and
+  // high-confidence once two of them were merged, while either one alone
+  // rendered stale. A merge must never be fresher than its oldest input.
+  test('The merged multi-writer value is never fresher than its oldest sample', () => {
+    const aged = (minutes: number) => new Date(NOW_MS - minutes * 60_000).toISOString();
+    const withTimestamp = (sessionHash: string, usedPct: number, ts: string) =>
+      JSON.stringify({ ...JSON.parse(snapshotBody({ sessionHash, usedPct })), timestamp: ts });
+    const files = [
+      { name: fileName(S1), mtimeMs: NOW_MS - 5_000, body: withTimestamp(S1, 40, aged(20)) },
+      { name: fileName(S2), mtimeMs: NOW_MS - 6_000, body: withTimestamp(S2, 50, aged(12)) },
+    ];
+    const single = read(files.slice(0, 1));
+    const merged = read(files);
+    assert.equal(merged.status, 'snapshot_dir_multi_writer');
+    assert.equal(merged.candidate?.producedAtMs, NOW_MS - 20 * 60_000);
+
+    const ctx = { now: () => NOW };
+    const singleState = resolve([single.candidate as SourceCandidate], ctx);
+    const mergedState = resolve([merged.candidate as SourceCandidate], ctx);
+    assert.equal(singleState.session.usedPct.reason, 'native_status_stale');
+    assert.equal(mergedState.session.usedPct.reason, 'native_status_stale');
+    assert.equal(mergedState.session.usedPct.confidence, 'low');
+  });
+
+  test('Fresh writers merge to a fresh value (normal multi-session operation unchanged)', () => {
+    const out = read([
+      {
+        name: fileName(S1),
+        mtimeMs: NOW_MS - 5_000,
+        body: snapshotBody({ sessionHash: S1, usedPct: 40 }),
+      },
+      {
+        name: fileName(S2),
+        mtimeMs: NOW_MS - 6_000,
+        body: snapshotBody({ sessionHash: S2, usedPct: 50 }),
+      },
+    ]);
+    const state = resolve([out.candidate as SourceCandidate], { now: () => NOW });
+    assert.equal(state.session.usedPct.reason, undefined);
+    assert.equal(state.session.usedPct.value, 50);
   });
 
   test('More snapshot files than the cap → too_many_files, never an arbitrary subset', () => {
