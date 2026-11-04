@@ -614,9 +614,10 @@ Claude Code sessions at once**. Start with single-file mode; it is the simplest.
     }
   }
   ```
-  TokenGauge reads only that exact directory, non-recursively. It considers
-  up to 32 hash-named snapshot files, treats files rewritten within about
-  90 seconds as active, and never deletes snapshot files.
+  TokenGauge reads only that exact directory, non-recursively, and ignores
+  symlinked entries inside it. It considers up to 32 hash-named snapshot
+  files, treats files rewritten within about 90 seconds as active, and never
+  deletes snapshot files.
   The writer adds one file per Claude Code session and never removes old ones.
   When the directory holds more than 32 of them, TokenGauge shows no directory
   value instead of guessing from part of the directory, and the Source Doctor

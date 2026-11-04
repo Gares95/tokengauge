@@ -62,6 +62,8 @@ export interface NativeSourceDoctorReportBuilderDeps {
   readonly readFile: (location: string) => string;
   readonly isDirectory: (location: string) => boolean;
   readonly listDir: (location: string) => readonly string[];
+  // Per-entry checks for the snapshot directory. They MUST NOT follow
+  // symlinks (lstat), so a symlinked entry is never a plain file.
   readonly fileMtimeMs: (location: string) => number | undefined;
   readonly isFile: (location: string) => boolean;
   readonly readStatsCacheCandidates?: typeof defaultReadStatsCacheCandidates;

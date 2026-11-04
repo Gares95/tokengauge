@@ -78,7 +78,9 @@ export interface SnapshotDirEntryStat {
 export interface ListSnapshotDirectoryDeps {
   // Names in ONE directory, non-recursive. MUST throw when unreadable.
   readonly readdir: (path: string) => readonly string[];
-  // Stats one entry; may throw when the entry vanished mid-listing.
+  // Stats one entry WITHOUT following symlinks (lstat semantics), so a
+  // symlinked entry is not a plain file and is skipped. May throw when the
+  // entry vanished mid-listing.
   readonly statEntry: (path: string) => SnapshotDirEntryStat;
   readonly join: (...parts: string[]) => string;
 }
@@ -86,7 +88,7 @@ export interface ListSnapshotDirectoryDeps {
 // The single bounded directory lister shared by the cockpit and the Source
 // Doctor. Pattern-filters names BEFORE any stat, refuses to inspect a partial
 // subset when more snapshot names exist than the cap, and keeps only plain
-// files. Throws only when the directory itself cannot be listed.
+// files (never symlinks). Throws only when the directory cannot be listed.
 export function listSnapshotDirectory(
   dirPath: string,
   deps: ListSnapshotDirectoryDeps,

@@ -181,7 +181,8 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
     const provider = cockpitProvider;
     const [
       { createNativeStatusRefreshLoop },
-      { gatherNativeCockpitCandidates, resolveStatuslineSnapshotPath, listSnapshotDirectory },
+      { gatherNativeCockpitCandidates, resolveStatuslineSnapshotPath },
+      { listSnapshotDirectoryOnDisk },
       { createClaudeSnapshotStabilityGate },
       { createCodexProbeRetentionGate },
       { createCockpitStabilizationPass },
@@ -189,10 +190,11 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
       { CodexAppServerProbe },
       { homedir },
       { join },
-      { readFileSync, readdirSync, statSync },
+      { readFileSync, statSync },
     ] = await Promise.all([
       import('./cockpit/NativeStatusRefreshLoop.js'),
       import('./cockpit/gatherNativeCockpitCandidates.js'),
+      import('./cockpit/snapshotDirectoryOnDisk.js'),
       import('./cockpit/ClaudeSnapshotStabilityGate.js'),
       import('./cockpit/CodexProbeRetentionGate.js'),
       import('./cockpit/CockpitStabilizationPass.js'),
@@ -258,8 +260,9 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
           // shared lister reads ONLY that directory, non-recursively,
           // pattern-filters the hash-derived names BEFORE stat'ing, and reports
           // a directory over the cap instead of truncating it — no broad
-          // scanning by construction. A missing/unreadable path is simply "not
-          // a directory" (single-file mode decides the rest).
+          // scanning by construction. Entries are lstat-ed, so a symlinked
+          // entry is never followed out of the directory. A missing/unreadable
+          // path is simply "not a directory" (single-file mode decides the rest).
           isDirectory: (p) => {
             try {
               return statSync(p).isDirectory();
@@ -267,12 +270,7 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
               return false;
             }
           },
-          listDir: (p) =>
-            listSnapshotDirectory(p, {
-              readdir: (dir) => readdirSync(dir),
-              statEntry: (entry) => statSync(entry),
-              join,
-            }),
+          listDir: listSnapshotDirectoryOnDisk,
           join,
           diagnostics,
           codexProbeEnabled: cockpitProbeEnabled,
@@ -776,16 +774,18 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
               }
             },
             listDir: (location) => fs.readdirSync(location),
+            // Snapshot-directory entries are lstat-ed (never followed), the
+            // same boundary as the cockpit lister.
             fileMtimeMs: (location) => {
               try {
-                return fs.statSync(location).mtimeMs;
+                return fs.lstatSync(location).mtimeMs;
               } catch {
                 return undefined;
               }
             },
             isFile: (location) => {
               try {
-                return fs.statSync(location).isFile();
+                return fs.lstatSync(location).isFile();
               } catch {
                 return false;
               }
