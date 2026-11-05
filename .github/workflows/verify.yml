@@ -1,7 +1,33 @@
 # Verification workflow.
 #
-# Default permissions are read-only; the workflow has no credentialed release
-# path and uses only pull_request/push events so fork PRs never receive secrets.
+# Triggers:
+#   - pull_request: every pull request, including pull requests from forks.
+#   - push to main: every change that lands on the default branch.
+#   - schedule: weekly, Mondays at 04:37 UTC. Re-verifies main during quiet
+#     periods when no pull request or push would run CI. Things outside this
+#     repository move without a commit here: the extension-host tests download
+#     the current VS Code stable build, the *-latest runner images and the
+#     Node 22.x patch release roll forward, and new npm advisories can fail the
+#     runtime audit. The minute is deliberately off the hour: GitHub delays,
+#     and under heavy load can drop, scheduled runs queued at the top of an hour.
+#   - workflow_dispatch: manual run from the Actions tab, no inputs.
+#
+# Scheduled-run behavior is set by GitHub, not by this file:
+#   - Only the copy of this file on the default branch drives the schedule, and
+#     each scheduled run checks out the latest commit on that branch. A cron
+#     change on any other branch has no effect until it is merged. The manual
+#     "Run workflow" button likewise appears only once workflow_dispatch is on
+#     the default branch.
+#   - In a public repository GitHub disables scheduled workflows after 60 days
+#     without repository activity. If the weekly runs stop, re-enable the
+#     workflow from the Actions tab.
+#   - Failure notifications for scheduled runs go to the account that last
+#     changed the cron line.
+#
+# Default permissions are read-only. The workflow has no credentialed release
+# path and references no secrets. None of its triggers runs fork code with
+# secrets: pull_request runs fork pull requests without them, and schedule,
+# push, and workflow_dispatch run only refs in this repository.
 # All run steps use Git Bash on every runner for consistent cross-platform syntax.
 #
 # This job runs the SAME canonical gate as local development -- `npm run check`
@@ -24,6 +50,10 @@ on:
   push:
     branches:
       - main
+  # Weekly drift check, Mondays 04:37 UTC. See the header for why.
+  schedule:
+    - cron: '37 4 * * 1'
+  workflow_dispatch:
 
 defaults:
   run:
