@@ -28,7 +28,7 @@
   --tg-crit: var(--vscode-editorError-foreground, var(--vscode-charts-red));
   --tg-neutral: var(--vscode-descriptionForeground);
   --tg-track: var(--vscode-widget-border, var(--vscode-editorWidget-border));
-  --tg-supported-floor: 320px;
+  --tg-supported-floor: 256px;
   --tg-content-max: 720px;
 }
 
@@ -50,7 +50,10 @@ body.vscode-high-contrast-light {
 
 body {
   margin: 0;
-  min-width: 280px;
+  /* The body follows the shell's supported floor rather than carrying its own
+   * number: a separate, larger body floor would silently become the binding
+   * width and reintroduce horizontal scroll above --tg-supported-floor. */
+  min-width: var(--tg-supported-floor);
   color: var(--vscode-foreground);
   background: var(--vscode-editor-background);
 }
@@ -92,10 +95,10 @@ button:focus-visible {
   gap: 16px;
   padding: 16px;
   width: min(100%, var(--tg-content-max));
-  /* The 320px design floor is unconditional: card internals never re-flow to
+  /* The 256px design floor is unconditional: card internals never re-flow to
    * fit a narrower viewport — the webview scrolls horizontally instead. A
-   * breakpoint-scoped floor left a 320–360 band where internals compressed
-   * while the floor had not yet kicked in. */
+   * breakpoint-scoped floor left a band where internals compressed while the
+   * floor had not yet kicked in. */
   min-width: var(--tg-supported-floor);
   margin: 0 auto;
   background: var(--vscode-editor-background);

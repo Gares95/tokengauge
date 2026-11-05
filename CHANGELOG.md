@@ -6,6 +6,12 @@ to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ## [Unreleased]
 
+### Changed
+
+- The cockpit now fits sidebars as narrow as 256px without horizontal scrolling
+  (previously 320px). Card layout, text sizes, and wrapping are unchanged; below
+  256px the view still scrolls horizontally instead of compressing the cards.
+
 ## [0.0.5] - 2026-09-04
 
 ### Added

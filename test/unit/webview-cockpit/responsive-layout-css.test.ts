@@ -10,10 +10,36 @@ function cockpitCss(): string {
   return readFileSync(join(findRepoRoot(), 'src/webview-cockpit/cockpit.css'), 'utf8');
 }
 
+// The supported width floor. Below it the webview scrolls horizontally; at or
+// above it every card renders without horizontal scroll.
+const SUPPORTED_FLOOR_PX = 256;
+
+// The first rule whose selector is exactly `selector` (not a compound like
+// `body.vscode-dark` or `.tg-card__body`). Returns the declaration block body.
+function ruleBody(css: string, selector: string): string {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = new RegExp(`(?:^|\\n)\\s*${escaped}\\s*\\{([^}]*)\\}`).exec(css);
+  assert.ok(match, `missing top-level rule for ${selector}`);
+  return match[1] ?? '';
+}
+
+function pxValue(block: string, property: string, label: string): number {
+  const match = new RegExp(`(?:^|[;\\s])${property}:\\s*(\\d+(?:\\.\\d+)?)px`).exec(block);
+  assert.ok(match, `${label} must declare ${property} in px`);
+  return Number(match[1]);
+}
+
+function mediaBody(css: string): string {
+  const firstMedia = css.indexOf('@media');
+  assert.ok(firstMedia >= 0, 'the narrow padding-relief breakpoint exists');
+  // Scan the media BODY (past the condition, which legitimately says max-width).
+  return css.slice(css.indexOf('{', firstMedia));
+}
+
 suite('responsive cockpit CSS guardrails', () => {
-  test('Pins the 320px floor and around-720px max content width', () => {
+  test('Pins the 256px floor and around-720px max content width', () => {
     const css = cockpitCss();
-    assert.match(css, /--tg-supported-floor:\s*320px;/);
+    assert.match(css, /--tg-supported-floor:\s*256px;/);
     assert.match(css, /--tg-content-max:\s*720px;/);
     assert.match(css, /width:\s*min\(100%,\s*var\(--tg-content-max\)\);/);
   });
@@ -26,7 +52,7 @@ suite('responsive cockpit CSS guardrails', () => {
     assert.match(
       css,
       /\.cockpit-shell\s*\{[^}]*min-width:\s*var\(--tg-supported-floor\);[^}]*\}/s,
-      'the base .cockpit-shell rule pins the 320px internal min-width',
+      'the base .cockpit-shell rule pins the 256px internal min-width',
     );
     const shellBlock = /\.cockpit-shell\s*\{[^}]*\}/s.exec(css)?.[0] ?? '';
     assert.match(
@@ -34,6 +60,28 @@ suite('responsive cockpit CSS guardrails', () => {
       /width:\s*min\(100%,\s*var\(--tg-content-max\)\)/,
       'the floor and the 720px max live on the same base rule',
     );
+  });
+
+  // Regression: the body carried its own 280px min-width, which sat ABOVE a
+  // narrower shell floor and became the real binding width. The body must
+  // follow the shared token so there is exactly one floor.
+  test('The body follows the shared floor instead of carrying a larger one', () => {
+    const css = cockpitCss();
+    assert.match(
+      ruleBody(css, 'body'),
+      /min-width:\s*var\(--tg-supported-floor\);/,
+      'body min-width must reference --tg-supported-floor',
+    );
+  });
+
+  // No other fixed min-width / width in the stylesheet may exceed the floor:
+  // any such box would force horizontal scroll inside the supported range.
+  test('No fixed width or min-width anywhere exceeds the supported floor', () => {
+    const css = cockpitCss().replace(/\/\*[\s\S]*?\*\//g, '');
+    const offenders = [...css.matchAll(/(?:^|[;{\s])((?:min-)?width):\s*(\d+(?:\.\d+)?)px/g)]
+      .filter((match) => Number(match[2]) >= SUPPORTED_FLOOR_PX)
+      .map((match) => `${match[1]}: ${match[2]}px`);
+    assert.deepEqual(offenders, [], 'fixed widths at or above the floor force horizontal scroll');
   });
 
   // Below the floor the cards stay mounted — no blocking
@@ -51,18 +99,61 @@ suite('responsive cockpit CSS guardrails', () => {
       1,
       'exactly one breakpoint (padding relief) — keeps the media section scan sound',
     );
-    const firstMedia = css.indexOf('@media');
-    assert.ok(firstMedia >= 0, 'the narrow padding-relief breakpoint exists');
-    // Scan the media BODY (past the condition, which legitimately says max-width).
-    const mediaBody = css.slice(css.indexOf('{', firstMedia));
     assert.ok(
-      !/grid-template|flex-wrap|grid-column|display\s*:|min-width|[^-]width\s*:/.test(mediaBody),
+      !/grid-template|flex-wrap|grid-column|display\s*:|min-width|[^-]width\s*:/.test(
+        mediaBody(css),
+      ),
       'media queries adjust padding only — never layout structure or width floors',
     );
     assert.match(
       css,
       /@media\s*\(max-width:\s*359\.98px\)\s*\{\s*\.cockpit-shell\s*\{[^}]*padding:\s*12px;/,
       'narrow placements get padding relief only',
+    );
+  });
+
+  // The padding-relief breakpoint must cover the floor itself, otherwise the
+  // narrowest supported width would render with the wider default padding.
+  test('The padding-relief breakpoint applies at the supported floor', () => {
+    const css = cockpitCss();
+    const condition = /@media\s*\(max-width:\s*(\d+(?:\.\d+)?)px\)/.exec(css);
+    assert.ok(condition, 'the padding-relief breakpoint is a max-width query');
+    assert.ok(
+      Number(condition[1]) >= SUPPORTED_FLOOR_PX,
+      'padding relief must still apply at the supported floor',
+    );
+  });
+
+  // Width budget at the floor for the tightest card row: the secondary window
+  // row (label | meter | "100% left"). The track minimums, gaps, and every
+  // horizontal padding/border between the viewport and that row are read from
+  // the stylesheet, so growing any of them past what the floor can hold fails
+  // here instead of shipping a horizontal scroll. Under pressure the grid
+  // shrinks the label track toward its minimum before the meter track goes
+  // under its own. 58px covers "100% left" at 12px tabular numerals, the widest
+  // value the row renders (measured 50 to 58px in Liberation Sans, Inter, and
+  // DejaVu Sans).
+  test('The floor leaves room for the widest secondary-row value text', () => {
+    const css = cockpitCss();
+    const media = mediaBody(css);
+    const narrowShellPad = pxValue(ruleBody(media, '.cockpit-shell'), 'padding', 'narrow shell');
+    const narrowCardPad = pxValue(ruleBody(media, '.tg-card__body'), 'padding', 'narrow card');
+    const cardBorder = pxValue(ruleBody(css, '.tg-card'), 'border', '.tg-card');
+    const row = ruleBody(css, '.tg-row');
+    const rowGap = pxValue(row, 'gap', '.tg-row');
+    const tracks =
+      /grid-template-columns:\s*minmax\((\d+)px,\s*max-content\)\s*minmax\((\d+)px,\s*1fr\)/.exec(
+        row,
+      );
+    assert.ok(tracks, '.tg-row keeps minimum label and meter tracks');
+    const labelTrackMin = Number(tracks[1]);
+    const meterTrackMin = Number(tracks[2]);
+
+    const rowContent = SUPPORTED_FLOOR_PX - 2 * narrowShellPad - 2 * cardBorder - 2 * narrowCardPad;
+    const valueRoom = rowContent - labelTrackMin - meterTrackMin - 2 * rowGap;
+    assert.ok(
+      valueRoom >= 58,
+      `at ${SUPPORTED_FLOOR_PX}px the window row leaves ${valueRoom}px for its value text`,
     );
   });
 
