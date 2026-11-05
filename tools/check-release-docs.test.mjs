@@ -100,6 +100,7 @@ function cleanDocs() {
       'Same-host setup is preferred. Cross-host paths can work but are not the recommended setup. ' +
       'Opt in to tokenGauge.providers.codex.nativeStatusProbe only when wanted and keep the Codex card visible for probes. ' +
       'Use tokenGauge.display.cards.claude.visible and tokenGauge.display.cards.codex.visible for card visibility. ' +
+      'Use tokenGauge.display.showProvenanceFooter to hide the card footer. ' +
       'When both are hidden, the cockpit shows No cards visible. ' +
       'The status bar may show `· Codex 42% weekly`. Codex shows `off` only when the probe is disabled. ' +
       'In snapshot directory mode there is no file watcher; directory mode is poll-only. ' +
@@ -253,6 +254,21 @@ runFixture(
       !result.output.includes('per-session snapshot directory'),
       'gate output must not echo docs',
     );
+  },
+);
+
+// The provenance-footer display setting must stay documented in the README.
+runFixture(
+  'missing-provenance-footer-setting',
+  (docs) => {
+    docs['README.md'] = docs['README.md'].replace(
+      'Use tokenGauge.display.showProvenanceFooter to hide the card footer. ',
+      '',
+    );
+  },
+  (result) => {
+    assert(result.status !== 0, 'README without the footer setting should fail');
+    assert(result.output.includes('missing-setup-guidance'), 'expected setup guidance rule');
   },
 );
 

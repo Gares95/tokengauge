@@ -2,8 +2,9 @@
 // brand cap + monogram header with a StateBadge, then EITHER battery meters
 // (live/stale, value present) OR a no-gauge SetupCallout (not configured / probe
 // off / unavailable / blocked) — an unavailable source never renders a 0% meter.
-// Context and cost are technical-details only. A persistent PrivacyFooter carries
-// the always-on non-billing + privacy honesty.
+// Context and cost are technical-details only. A PrivacyFooter carries the
+// provenance + privacy honesty; it is on by default and only an explicit
+// tokenGauge.display.showProvenanceFooter = false hides it.
 //
 // Privacy: `reason` is a closed CockpitFieldReason union mapped to
 // fixed copy via a static lookup — no free-form strings reach the DOM. The exact
@@ -251,13 +252,18 @@ function TechnicalDetails({ card }: { readonly card: GaugeCardViewModel }) {
 export function AgentCard({
   card,
   showTechnicalDetails = false,
+  showProvenanceFooter = true,
   callbacks = NO_CALLBACKS,
 }: {
   readonly card: GaugeCardViewModel;
   // Gates ALL technical detail (Context row, cost, raw source/freshness/reason).
-  // Default false → the simple card. Active warnings + the privacy footer always
-  // render regardless of this flag.
+  // Default false → the simple card. Active warnings always render regardless
+  // of this flag.
   readonly showTechnicalDetails?: boolean;
+  // Gates ONLY the informational provenance/privacy footer. Default true. It
+  // never hides the state badge, risk pill, stale/collision notes, or setup
+  // callout, and the status bar hover keeps the same provenance line.
+  readonly showProvenanceFooter?: boolean;
   // SetupCallout CTAs and the card's recheck route through these — the webview
   // never sets a setting itself. Defaults to no-ops for direct/test rendering.
   readonly callbacks?: AgentCardCallbacks;
@@ -388,7 +394,7 @@ export function AgentCard({
           <SetupCallout spec={setup} onCta={ctaHandler(setup, callbacks)} />
         )}
 
-        <PrivacyFooter agentLabel={card.agentLabel} />
+        {showProvenanceFooter ? <PrivacyFooter agentLabel={card.agentLabel} /> : null}
       </div>
     </article>
   );

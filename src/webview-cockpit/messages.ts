@@ -60,6 +60,7 @@ type CockpitInboundEvent = GaugeCardsMessage | BuildInfoMessage | DisplayConfigM
 
 export interface CockpitDisplayConfig {
   readonly showTechnicalDetails: boolean;
+  readonly showProvenanceFooter: boolean;
   readonly cardVisibility: ProviderCardVisibility;
 }
 
@@ -82,7 +83,8 @@ export interface CockpitMessagingOptions {
   // keep it internal for diagnostics/test traceability, not primary UI chrome.
   readonly onBuildInfo?: (buildId: string) => void;
   // Fired when the host posts display-only config so the card can
-  // switch simple/technical and distinguish deliberate both-hidden from welcome.
+  // switch simple/technical, show or hide the provenance footer, and
+  // distinguish deliberate both-hidden from welcome.
   readonly onDisplayConfig?: (config: CockpitDisplayConfig) => void;
   // Register a callback fired when the view regains visibility so
   // the webview can re-request current state (belt-and-braces with the host's
@@ -123,6 +125,7 @@ function isDisplayConfigMessage(data: unknown): data is DisplayConfigMessage {
     data !== null &&
     (data as { type?: unknown }).type === 'displayConfig' &&
     typeof (data as { showTechnicalDetails?: unknown }).showTechnicalDetails === 'boolean' &&
+    typeof (data as { showProvenanceFooter?: unknown }).showProvenanceFooter === 'boolean' &&
     typeof cardVisibility === 'object' &&
     cardVisibility !== null &&
     typeof (cardVisibility as { claude?: unknown }).claude === 'boolean' &&
@@ -155,6 +158,7 @@ export function initializeCockpitMessaging(options: CockpitMessagingOptions): ()
       } else if (isDisplayConfigMessage(event?.data)) {
         options.onDisplayConfig?.({
           showTechnicalDetails: event.data.showTechnicalDetails,
+          showProvenanceFooter: event.data.showProvenanceFooter,
           cardVisibility: event.data.cardVisibility,
         });
       }

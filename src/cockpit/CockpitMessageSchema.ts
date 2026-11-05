@@ -135,13 +135,14 @@ const BuildInfoMessageSchema = z
   })
   .strict();
 
-// NON-SENSITIVE display-only flags plumbing technical details and
-// card visibility to the webview. Booleans only — never a path/secret/value.
-// Strict like every other outbound message so an extra key drops.
+// NON-SENSITIVE display-only flags plumbing technical details, the card
+// provenance footer, and card visibility to the webview. Booleans only — never a
+// path/secret/value. Strict like every other outbound message so an extra key drops.
 const DisplayConfigMessageSchema = z
   .object({
     type: z.literal('displayConfig'),
     showTechnicalDetails: z.boolean(),
+    showProvenanceFooter: z.boolean(),
     cardVisibility: z
       .object({
         claude: z.boolean(),

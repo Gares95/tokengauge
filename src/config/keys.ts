@@ -10,6 +10,10 @@ export const TOKENGAUGE_KEYS = [
   // cards. Default false → the card hides source tier / raw freshness / logs-off /
   // reason id / billing disclaimer / confidence; warnings + context stay visible.
   'tokenGauge.display.showTechnicalDetails',
+  // Shows the informational provenance/privacy footer on provider cards.
+  // Default true; only an explicit false hides it. Never gates warnings,
+  // badges, setup messages, diagnostics, or documentation.
+  'tokenGauge.display.showProvenanceFooter',
   // Card visibility preferences. Default true; hiding a card removes it from
   // summaries and gates that provider's native reads/probes without changing
   // the Codex native probe opt-in setting.

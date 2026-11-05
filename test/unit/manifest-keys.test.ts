@@ -134,6 +134,40 @@ suite('Manifest <-> TOKENGAUGE_KEYS parity (CONF-01)', () => {
     );
   });
 
+  // The provenance footer is informational and visible by default; turning it
+  // off must not read as hiding warnings or removing the privacy/accuracy
+  // record, which stays in the status bar hover, diagnostics, and the docs.
+  test('Provenance footer setting is a display-only boolean, visible by default', () => {
+    const properties = readManifestProperties() as Record<
+      string,
+      {
+        type?: string;
+        default?: unknown;
+        scope?: string;
+        title?: string;
+        markdownDescription?: string;
+        description?: string;
+      }
+    >;
+    const footer = properties['tokenGauge.display.showProvenanceFooter'];
+    assert.ok(footer, 'manifest missing tokenGauge.display.showProvenanceFooter');
+    assert.equal(footer.type, 'boolean', 'showProvenanceFooter must be boolean');
+    assert.equal(footer.default, true, 'the footer must stay visible by default');
+    assert.equal(footer.scope, 'window', 'matches the other display settings');
+    assert.equal(footer.title, 'Show Provenance Footer');
+    const copy = `${footer.markdownDescription ?? ''}${footer.description ?? ''}`;
+    assert.match(copy, /^Display:/, 'the copy reads in the Display band');
+    assert.match(copy, /Default: `true`/, 'the copy states the visible default');
+    assert.match(copy, /warnings/i, 'the copy says warnings still show');
+    assert.match(copy, /badges/i, 'the copy says badges still show');
+    assert.match(copy, /status bar hover/, 'the copy names where provenance remains');
+    assert.match(copy, /Cockpit Diagnostics\*\* is unchanged/, 'diagnostics are not affected');
+    assert.match(copy, /Privacy & Data Report/, 'the copy names where privacy details remain');
+    // The Configure Cockpit provider filters search for "Claude" / "Codex"; a
+    // card-wide display preference should not surface under one provider.
+    assert.ok(!/Claude|Codex/.test(copy), 'the copy stays provider-neutral');
+  });
+
   test('Settings are grouped into provider and display configuration sections', () => {
     const blocks = manifestConfigurationBlocks(readManifest());
     const byTitle = new Map(blocks.map((block) => [block.title, block]));
@@ -160,7 +194,12 @@ suite('Manifest <-> TOKENGAUGE_KEYS parity (CONF-01)', () => {
       'Card Visible',
     );
 
-    assert.ok(byTitle.get('TokenGauge › Display'), 'Display settings section missing');
+    const display = byTitle.get('TokenGauge › Display');
+    assert.ok(display, 'Display settings section missing');
+    assert.deepEqual(Object.keys(display.properties ?? {}), [
+      'tokenGauge.display.showTechnicalDetails',
+      'tokenGauge.display.showProvenanceFooter',
+    ]);
     assert.ok(byTitle.get('TokenGauge › Advanced / Polling'), 'Polling settings section missing');
   });
 });

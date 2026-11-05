@@ -48,6 +48,9 @@ export interface GaugeCockpitViewProviderDeps {
   // at post time so the cockpit reflects the current setting (and a live change once
   // re-posted). Non-sensitive boolean. Defaults to false (simpler card) when absent.
   readonly showTechnicalDetails?: () => boolean;
+  // Reads tokenGauge.display.showProvenanceFooter at post time. Non-sensitive
+  // boolean. Defaults to true (footer shown) when absent.
+  readonly showProvenanceFooter?: () => boolean;
   // Provider card visibility. Booleans only; hiding a card removes it from the
   // cockpit/status summaries and upstream loop gates provider reads/probes. It
   // is not provider enablement, not deletion, and not a probe opt-in toggle.
@@ -268,9 +271,10 @@ export class GaugeCockpitViewProvider implements vscode.WebviewViewProvider {
     this.postDisplayConfigSafely();
   }
 
-  // Post the NON-SENSITIVE showTechnicalDetails
-  // flag (default false when the dep is absent). Called on ready, on every card
-  // post, and on a config change so the card reflects the current setting.
+  // Post the NON-SENSITIVE display flags (showTechnicalDetails defaults false,
+  // showProvenanceFooter defaults true when the dep is absent). Called on ready,
+  // on every card post, and on a config change so the card reflects the current
+  // setting.
   private async postDisplayConfig(): Promise<void> {
     if (this.view === undefined || !this.view.visible) {
       return;
@@ -278,12 +282,14 @@ export class GaugeCockpitViewProvider implements vscode.WebviewViewProvider {
     await this.postMessage({
       type: 'displayConfig',
       showTechnicalDetails: this.deps.showTechnicalDetails?.() ?? false,
+      showProvenanceFooter: this.deps.showProvenanceFooter?.() ?? true,
       cardVisibility: this.deps.cardVisibility?.() ?? DEFAULT_PROVIDER_CARD_VISIBILITY,
     });
   }
 
-  // Re-post the display posture when the setting changes so a live toggle of
-  // tokenGauge.display.showTechnicalDetails updates the open cockpit immediately.
+  // Re-post the display posture when a display setting changes so a live toggle
+  // (technical details, provenance footer, card visibility) updates the open
+  // cockpit immediately.
   public refreshDisplayConfig(): void {
     this.postDisplayConfigSafely();
   }

@@ -4,7 +4,10 @@ TokenGauge's central promise is honesty: every metric is tracked with a label
 describing how trustworthy it is, and unavailable data is never presented as
 provider billing data. Cockpit cards surface that metadata as plain-language
 provenance ("Reported by Claude Code; not an official billing total"); the raw
-label ids appear in Cockpit Diagnostics rather than on the card. This document
+label ids appear in Cockpit Diagnostics rather than on the card. The card
+footer is shown by default; `tokenGauge.display.showProvenanceFooter` can hide
+it, but the status bar hover keeps the provenance, Cockpit Diagnostics is
+unchanged, and this document's labels and contracts still apply. This document
 defines the accuracy labels, the source kinds that feed them, and the display
 contracts that follow.
 

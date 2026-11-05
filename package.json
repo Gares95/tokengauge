@@ -148,6 +148,14 @@
             "order": 72,
             "title": "Show Technical Details",
             "markdownDescription": "Display: Show the context-window meter and provider-reported cost on cockpit cards. Off by default for a simpler card; important warnings remain visible either way."
+          },
+          "tokenGauge.display.showProvenanceFooter": {
+            "type": "boolean",
+            "default": true,
+            "scope": "window",
+            "order": 73,
+            "title": "Show Provenance Footer",
+            "markdownDescription": "Display: Show the informational footer at the bottom of every provider card in the cockpit (\"Reported by …\" plus what TokenGauge reads). Default: `true`. Turning it off hides only that footer: warnings, stale and error notes, risk and status badges, and setup messages still show. The status bar hover still names the agent that reported each value, **TokenGauge: Cockpit Diagnostics** is unchanged, and the **TokenGauge: Privacy & Data Report** and the privacy and accuracy documentation still describe what TokenGauge reads."
           }
         }
       },

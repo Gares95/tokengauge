@@ -6,6 +6,15 @@ to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ## [Unreleased]
 
+### Added
+
+- Added `tokenGauge.display.showProvenanceFooter` (default `true`). Set it to
+  `false` to hide the informational "Reported by …" and privacy footer on Claude
+  and Codex cockpit cards. Warnings, stale and error notes, risk and status
+  badges, and setup messages still show; the status bar hover still names the
+  reporting agent; diagnostics and the privacy and accuracy documentation are
+  unchanged.
+
 ### Changed
 
 - The cockpit now fits sidebars as narrow as 256px without horizontal scrolling

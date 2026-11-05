@@ -357,13 +357,126 @@ suite('AgentCard — Context + cost are technical-only', () => {
   });
 });
 
-suite('AgentCard — persistent privacy footer', () => {
-  test('Every card carries the non-billing + privacy footer lines', () => {
-    for (const card of [liveCard(), blockedCard('codex_probe_disabled')]) {
+suite('AgentCard — provenance footer', () => {
+  const PRIVACY_LINE = "Reads only your agent's status, never your prompts, code, or logs";
+
+  // Claude and Codex cards in every visual state the footer can sit under:
+  // live, stale, collision, critical, not configured, probe off, and blocked.
+  function cardsInEveryState(): GaugeCardViewModel[] {
+    const codex = {
+      agent: 'codex',
+      agentLabel: 'Codex',
+      colorKey: 'codex',
+      sourceTier: 'codex_status_snapshot',
+    } as const;
+    return [
+      liveCard(),
+      liveCard(codex),
+      liveCard({ freshness: 'stale', reason: 'native_status_stale' }),
+      liveCard({ ...codex, freshness: 'stale', reason: 'codex_probe_stale' }),
+      liveCard({ freshness: 'degraded', reason: 'snapshot_writer_collision' }),
+      liveCard({
+        ...codex,
+        risk: 'critical',
+        session: gauge({ usedPct: 96, leftPct: 4, centerLabel: '96%' }),
+      }),
+      blockedCard('statusline_snapshot_not_configured', {
+        agent: 'claude-code',
+        agentLabel: 'Claude Code',
+        colorKey: 'claude',
+      }),
+      blockedCard('codex_probe_disabled'),
+      blockedCard('codex_probe_failed'),
+    ];
+  }
+
+  function footers(out: unknown): VNodeLike[] {
+    return nodesWhere(out, (_props, type) => type === 'footer');
+  }
+
+  // The default (setting absent) is the long-standing behavior.
+  test('Every card carries the non-billing + privacy footer lines by default', () => {
+    for (const card of cardsInEveryState()) {
       const text = textContent(AgentCard({ card }));
-      assert.match(text, /Reported by /);
-      assert.match(text, /Reads only your agent's status, never your prompts, code, or logs/);
+      assert.match(text, new RegExp(`Reported by ${card.agentLabel}`));
+      assert.ok(text.includes(PRIVACY_LINE), `${card.agentLabel} default footer`);
     }
+  });
+
+  test('An explicit true keeps the footer', () => {
+    for (const card of cardsInEveryState()) {
+      assert.equal(footers(AgentCard({ card, showProvenanceFooter: true })).length, 1);
+    }
+  });
+
+  test('Turning it off removes the footer from Claude and Codex cards in every state', () => {
+    for (const card of cardsInEveryState()) {
+      const out = AgentCard({ card, showProvenanceFooter: false });
+      assert.equal(footers(out).length, 0, `${card.agentLabel} ${card.freshness} footer hidden`);
+      const text = textContent(out);
+      assert.ok(!text.includes('Reported by'), 'no provenance line');
+      assert.ok(!text.includes(PRIVACY_LINE), 'no privacy line');
+    }
+  });
+
+  // Hiding the footer must remove exactly its two lines: every badge, warning,
+  // risk pill, stale or collision note, setup message, CTA, and meter stays.
+  test('Hiding the footer removes only the footer, never warnings, badges, or guidance', () => {
+    for (const card of cardsInEveryState()) {
+      for (const showTechnicalDetails of [false, true]) {
+        const on = AgentCard({ card, showTechnicalDetails });
+        const off = AgentCard({ card, showTechnicalDetails, showProvenanceFooter: false });
+        assert.equal(
+          textContent(on),
+          [textContent(off), `Reported by ${card.agentLabel}`, PRIVACY_LINE].join(' '),
+          `${card.agentLabel} ${card.freshness} ${card.reason ?? ''}: only the footer text differs`,
+        );
+        assert.equal(progressbars(off).length, progressbars(on).length, 'meters unchanged');
+        assert.equal(
+          nodesWhere(off, (props) => props.role === 'status').length,
+          nodesWhere(on, (props) => props.role === 'status').length,
+          'status announcements unchanged',
+        );
+        assert.equal(
+          nodesWhere(off, (_props, type) => type === 'button').length,
+          nodesWhere(on, (_props, type) => type === 'button').length,
+          'setup and recheck actions unchanged',
+        );
+      }
+    }
+  });
+
+  test('Important signals stay visible with the footer off', () => {
+    const critical = textContent(
+      AgentCard({
+        card: liveCard({ risk: 'critical', session: gauge({ usedPct: 96, leftPct: 4 }) }),
+        showProvenanceFooter: false,
+      }),
+    );
+    assert.match(critical, /Critical/, 'risk pill');
+    assert.match(critical, /Live/, 'state badge');
+
+    const stale = textContent(
+      AgentCard({
+        card: liveCard({ freshness: 'stale', reason: 'native_status_stale' }),
+        showProvenanceFooter: false,
+      }),
+    );
+    assert.match(stale, /Stale · showing last-known/, 'stale note');
+    assert.match(stale, /Last known/, 'stale badge');
+
+    const collision = textContent(
+      AgentCard({
+        card: liveCard({ freshness: 'degraded', reason: 'snapshot_writer_collision' }),
+        showProvenanceFooter: false,
+      }),
+    );
+    assert.match(collision, /Multiple Claude Code writers detected/, 'collision warning');
+
+    const blocked = textContent(
+      AgentCard({ card: blockedCard('codex_probe_failed'), showProvenanceFooter: false }),
+    );
+    assert.match(blocked, /Blocked/, 'blocked badge');
   });
 });
 

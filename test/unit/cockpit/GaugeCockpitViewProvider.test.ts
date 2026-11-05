@@ -100,6 +100,7 @@ function resolveProvider(options?: {
   diagnostics?: DiagnosticsService;
   executeCommand?: (command: string, ...args: readonly unknown[]) => Thenable<unknown>;
   showTechnicalDetails?: () => boolean;
+  showProvenanceFooter?: () => boolean;
   cardVisibility?: () => ProviderCardVisibility;
   codexProbeScope?: () => 'default' | 'user' | 'workspace' | 'workspaceFolder';
   showInfo?: (message: string) => void;
@@ -111,6 +112,9 @@ function resolveProvider(options?: {
     ...(options?.executeCommand !== undefined ? { executeCommand: options.executeCommand } : {}),
     ...(options?.showTechnicalDetails !== undefined
       ? { showTechnicalDetails: options.showTechnicalDetails }
+      : {}),
+    ...(options?.showProvenanceFooter !== undefined
+      ? { showProvenanceFooter: options.showProvenanceFooter }
       : {}),
     ...(options?.cardVisibility !== undefined ? { cardVisibility: options.cardVisibility } : {}),
     ...(options?.codexProbeScope !== undefined ? { codexProbeScope: options.codexProbeScope } : {}),
@@ -204,6 +208,7 @@ suite('GaugeCockpitViewProvider', () => {
   test('Inbound ready posts a displayConfig reflecting display-only deps', async () => {
     const { view } = resolveProvider({
       showTechnicalDetails: (): boolean => true,
+      showProvenanceFooter: (): boolean => false,
       cardVisibility: () => ({ claude: false, codex: true }),
     });
     view.webview.posted.length = 0;
@@ -214,14 +219,21 @@ suite('GaugeCockpitViewProvider', () => {
     const posted = view.webview.posted as Array<{
       type?: string;
       showTechnicalDetails?: unknown;
+      showProvenanceFooter?: unknown;
       cardVisibility?: unknown;
     }>;
     const cfg = posted.find((message) => message.type === 'displayConfig');
     assert.ok(cfg, 'ready must post a displayConfig message');
     assert.equal(cfg.showTechnicalDetails, true);
+    assert.equal(cfg.showProvenanceFooter, false);
     assert.deepEqual(cfg.cardVisibility, { claude: false, codex: true });
     // Only the closed key set rides the displayConfig message — no leak vector.
-    const allowed = new Set(['type', 'showTechnicalDetails', 'cardVisibility']);
+    const allowed = new Set([
+      'type',
+      'showTechnicalDetails',
+      'showProvenanceFooter',
+      'cardVisibility',
+    ]);
     for (const key of Object.keys(cfg)) {
       assert.ok(allowed.has(key), `unexpected displayConfig key: ${key}`);
     }
@@ -236,25 +248,37 @@ suite('GaugeCockpitViewProvider', () => {
       view.webview.posted as Array<{
         type?: string;
         showTechnicalDetails?: unknown;
+        showProvenanceFooter?: unknown;
         cardVisibility?: unknown;
       }>
     ).find((m) => m.type === 'displayConfig');
     assert.ok(cfg, 'a displayConfig is still posted');
     assert.equal(cfg.showTechnicalDetails, false, 'default posture is the simple card');
+    assert.equal(cfg.showProvenanceFooter, true, 'the provenance footer is shown by default');
     assert.deepEqual(cfg.cardVisibility, { claude: true, codex: true });
   });
 
   test('RefreshDisplayConfig re-posts the current display posture (live toggle)', () => {
     let show = false;
-    const { provider, view } = resolveProvider({ showTechnicalDetails: (): boolean => show });
+    let footer = true;
+    const { provider, view } = resolveProvider({
+      showTechnicalDetails: (): boolean => show,
+      showProvenanceFooter: (): boolean => footer,
+    });
     view.webview.posted.length = 0;
     show = true;
+    footer = false;
     provider.refreshDisplayConfig();
     const cfg = (
-      view.webview.posted as Array<{ type?: string; showTechnicalDetails?: unknown }>
+      view.webview.posted as Array<{
+        type?: string;
+        showTechnicalDetails?: unknown;
+        showProvenanceFooter?: unknown;
+      }>
     ).find((m) => m.type === 'displayConfig');
     assert.ok(cfg, 'refreshDisplayConfig posts a displayConfig');
     assert.equal(cfg.showTechnicalDetails, true);
+    assert.equal(cfg.showProvenanceFooter, false, 'a live footer toggle reaches the webview');
   });
 
   test('Inbound refreshNativeStatus invokes requestRefresh once', () => {

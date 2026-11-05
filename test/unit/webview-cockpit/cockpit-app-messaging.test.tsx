@@ -213,13 +213,39 @@ suite('Cockpit app messaging', () => {
       data: {
         type: 'displayConfig',
         showTechnicalDetails: true,
+        showProvenanceFooter: false,
         cardVisibility: { claude: false, codex: true },
       },
     } as MessageEvent);
     assert.deepEqual(received, {
       showTechnicalDetails: true,
+      showProvenanceFooter: false,
       cardVisibility: { claude: false, codex: true },
     });
+  });
+
+  test('A malformed displayConfig (non-boolean footer flag) is ignored, not propagated', () => {
+    for (const showProvenanceFooter of ['hidden', 0, null, undefined]) {
+      const target = fakeTarget();
+      let received = false;
+      initializeCockpitMessaging({
+        target,
+        postMessage: () => {},
+        onGaugeCards: () => {},
+        onDisplayConfig: () => {
+          received = true;
+        },
+      });
+      target.listeners[0]?.({
+        data: {
+          type: 'displayConfig',
+          showTechnicalDetails: false,
+          showProvenanceFooter,
+          cardVisibility: { claude: true, codex: true },
+        },
+      } as MessageEvent);
+      assert.equal(received, false, `footer flag ${String(showProvenanceFooter)} must be dropped`);
+    }
   });
 
   test('A malformed displayConfig (non-boolean visibility) is ignored, not propagated', () => {
@@ -237,6 +263,7 @@ suite('Cockpit app messaging', () => {
       data: {
         type: 'displayConfig',
         showTechnicalDetails: true,
+        showProvenanceFooter: true,
         cardVisibility: { claude: false, codex: 'hidden' },
       },
     } as MessageEvent);
@@ -244,7 +271,7 @@ suite('Cockpit app messaging', () => {
   });
 
   // Technical details (the Context row + cost) show only when showTechnicalDetails
-  // is true; the privacy footer is always present.
+  // is true; the privacy footer is independent of it and present by default.
   test('CockpitView shows the technical details only when showTechnicalDetails is true', () => {
     const cards = [sampleCard('claude-code')];
     const off = textContent(CockpitView({ cards, onRefresh: () => {} }));
@@ -252,11 +279,43 @@ suite('Cockpit app messaging', () => {
     assert.match(
       off,
       /Reads only your agent's status, never your prompts, code, or logs/,
-      'the privacy footer is always present',
+      'the privacy footer is present by default',
     );
 
     const on = textContent(CockpitView({ cards, onRefresh: () => {}, showTechnicalDetails: true }));
     assert.match(on, /Context/, 'the technical view adds the Context row');
+    assert.match(on, /Reads only your agent's status/, 'technical details keep the footer');
+  });
+
+  // The footer setting applies to every provider card the cockpit renders.
+  test('CockpitView hides the provenance footer on Claude and Codex cards only when told to', () => {
+    const cards = [sampleCard('claude-code'), sampleCard('codex')];
+    const shown = textContent(CockpitView({ cards, onRefresh: () => {} }));
+    assert.equal(
+      (shown.match(/Reads only your agent's status/g) ?? []).length,
+      2,
+      'both cards carry the footer by default',
+    );
+    assert.match(shown, /Reported by Claude Code/);
+    assert.match(shown, /Reported by Codex/);
+
+    const hidden = textContent(
+      CockpitView({ cards, onRefresh: () => {}, showProvenanceFooter: false }),
+    );
+    assert.ok(!/Reads only your agent's status/.test(hidden), 'no footer privacy line');
+    assert.ok(!/Reported by/.test(hidden), 'no footer provenance line');
+    assert.match(hidden, /Claude Code/, 'the Claude card still renders');
+    assert.match(hidden, /Codex/, 'the Codex card still renders');
+    assert.match(hidden, /Refresh/, 'the cockpit toolbar is unaffected');
+    assert.match(hidden, /Privacy & data/, 'the privacy report link stays available');
+  });
+
+  // The first-run welcome is not a provider card: its privacy promise stays.
+  test('The footer setting never hides the first-run privacy promise', () => {
+    const text = textContent(
+      CockpitView({ cards: [], onRefresh: () => {}, showProvenanceFooter: false }),
+    );
+    assert.match(text, /Private by design/);
   });
 
   test('CockpitView keeps build id metadata out of the primary UI', () => {

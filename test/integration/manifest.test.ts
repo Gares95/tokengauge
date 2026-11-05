@@ -81,6 +81,9 @@ const SETTINGS_DEFAULTS: readonly { key: string; default: unknown }[] = [
   { key: 'tokenGauge.pollIntervalSeconds', default: 15 },
   // Default false (simpler default card).
   { key: 'tokenGauge.display.showTechnicalDetails', default: false },
+  // Default true: the informational provenance footer stays on every card
+  // unless the user explicitly hides it.
+  { key: 'tokenGauge.display.showProvenanceFooter', default: true },
   { key: 'tokenGauge.display.cards.claude.visible', default: true },
   { key: 'tokenGauge.display.cards.codex.visible', default: true },
   { key: 'tokenGauge.providers.codex.nativeStatusProbe', default: false },
@@ -199,6 +202,20 @@ suite('Manifest — settings', () => {
     assert.equal(prop.default, false, 'showTechnicalDetails must default false (simpler card)');
     const text = String(prop.markdownDescription ?? prop.description ?? '');
     assert.match(text, /^Display:/, 'showTechnicalDetails must sit in the Display band');
+  });
+
+  // The provenance footer setting exists with the visible-by-default posture
+  // (boolean, default true) and a Display-band description.
+  test('Display.showProvenanceFooter exists as boolean default true', async () => {
+    const manifest = await loadManifest();
+    const props = manifestConfigurationProperties(manifest);
+    const prop = props['tokenGauge.display.showProvenanceFooter'];
+    assert.ok(prop, 'manifest missing tokenGauge.display.showProvenanceFooter');
+    assert.equal(prop.type, 'boolean', 'showProvenanceFooter must be boolean');
+    assert.equal(prop.default, true, 'showProvenanceFooter must default true (footer shown)');
+    const text = String(prop.markdownDescription ?? prop.description ?? '');
+    assert.match(text, /^Display:/, 'showProvenanceFooter must sit in the Display band');
+    assert.match(text, /warnings/i, 'the copy must say warnings still show');
   });
 
   test('Privacy-default keys document the private default + implication, non-recommending', async () => {
@@ -364,6 +381,7 @@ suite('Manifest — native-first grouping holds with round-5 keys', () => {
     'tokenGauge.providers.codex.nativeStatusProbe',
   ] as const;
   const SHOW_TECHNICAL_DETAILS = 'tokenGauge.display.showTechnicalDetails';
+  const SHOW_PROVENANCE_FOOTER = 'tokenGauge.display.showProvenanceFooter';
 
   function descOf(props: Record<string, ConfigProperty>, key: string): string {
     return String(props[key]?.markdownDescription ?? props[key]?.description ?? '');
@@ -406,6 +424,17 @@ suite('Manifest — native-first grouping holds with round-5 keys', () => {
       const providerOrder = props[key]?.order ?? Number.MAX_SAFE_INTEGER;
       assert.ok(providerOrder < order, `${key} must lead ${SHOW_TECHNICAL_DETAILS}`);
     }
+  });
+
+  test('Display.showProvenanceFooter follows showTechnicalDetails in the Display group', async () => {
+    const manifest = await loadManifest();
+    const blocks = manifestConfigurationBlocks(manifest);
+    const display = blocks.find((block) => block.title === 'TokenGauge › Display');
+    assert.ok(display?.properties?.[SHOW_PROVENANCE_FOOTER], 'footer setting is in Display');
+    const props = manifestConfigurationProperties(manifest);
+    const technicalOrder = props[SHOW_TECHNICAL_DETAILS]?.order ?? Number.MAX_SAFE_INTEGER;
+    const footerOrder = props[SHOW_PROVENANCE_FOOTER]?.order ?? 0;
+    assert.ok(technicalOrder < footerOrder, 'showTechnicalDetails leads the footer setting');
   });
 
   test('Settings keys are present and no key deleted / no default changed', async () => {

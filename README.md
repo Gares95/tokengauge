@@ -23,8 +23,8 @@ or transcripts.
 - **Honest by construction.** Every number is tracked with an accuracy label.
   Current v1 emits `proxy_reported` (native-reported) or `unknown`; see
   [ACCURACY.md](ACCURACY.md) for the full declared taxonomy. Cards surface the
-  label as plain-language provenance, and Cockpit Diagnostics exposes the raw
-  labels. Missing cost reads `cost unknown`, never a believable `$0.00`.
+  label as plain-language provenance by default, and Cockpit Diagnostics exposes
+  the raw labels. Missing cost reads `cost unknown`, never a believable `$0.00`.
 - **Native-first.** The cockpit reads current limit state from native agent
   surfaces. It does **not** need your conversation logs to work, and reads none
   by default.
@@ -115,7 +115,8 @@ and is native-first: it does not scan your conversation logs by default.
   your transcripts.
 - **Tracks every metric** with its source, freshness, privacy posture, and accuracy label
   (see [ACCURACY.md](ACCURACY.md)). Cards surface this as plain-language provenance
-  ("Reported by Claude Code; not an official billing total"); the raw labels live in
+  ("Reported by Claude Code; not an official billing total") by default, and the
+  status bar hover keeps it even if you hide the card footer; the raw labels live in
   **TokenGauge: Cockpit Diagnostics**.
   Missing cost reads `cost unknown`, never a believable `$0.00`.
 - **Keeps all data local.** There is **no developer-controlled telemetry** and no default
@@ -649,9 +650,17 @@ a configured Claude statusLine snapshot and/or the explicit Codex probe opt-in.
   Codex probes even if the native probe opt-in remains enabled.
 - `tokenGauge.display.showTechnicalDetails` (default `false`): shows the
   context-window meter and the provider-reported cost line on cockpit cards. Off
-  by default for a simpler card; warnings and the always-on provenance footer are
+  by default for a simpler card; warnings and the provenance footer are
   unaffected. Raw source and accuracy internals are not card elements; they
   appear in **TokenGauge: Cockpit Diagnostics**.
+- `tokenGauge.display.showProvenanceFooter` (default `true`): shows the
+  informational footer at the bottom of each provider card ("Reported by …" and
+  what TokenGauge reads). Set it to `false` to hide only that footer, on Claude
+  and Codex cards alike. Warnings, stale and error notes, risk and status
+  badges, and setup messages still show. The status bar hover still names the
+  agent that reported each value, **TokenGauge: Cockpit Diagnostics** is
+  unchanged, and **TokenGauge: Privacy & Data Report**, [PRIVACY.md](PRIVACY.md),
+  and [ACCURACY.md](ACCURACY.md) still describe what TokenGauge reads.
 - `tokenGauge.pollIntervalSeconds` (default `15`, range 10 to 15): how often the
   cockpit re-checks native status files and re-renders. These checks are local
   file reads. The Codex native probe is independent of this setting and waits at
@@ -827,8 +836,9 @@ In practice that means:
 TokenGauge declares five accuracy labels — `exact`, `billing_authoritative`,
 `proxy_reported`, `partial`, `unknown` — and current v1 emits only
 `proxy_reported` and `unknown`. Cards surface the label as plain-language
-provenance ("Reported by Claude Code; not an official billing total"); the raw
-label ids appear in **TokenGauge: Cockpit Diagnostics** rather than on the card.
+provenance ("Reported by Claude Code; not an official billing total") by
+default; the raw label ids appear in **TokenGauge: Cockpit Diagnostics** rather
+than on the card.
 TokenGauge does not synthesize or estimate usage. When native data is unavailable
 the value reads unknown/unavailable. See [ACCURACY.md](ACCURACY.md) for the full
 taxonomy and limitations.

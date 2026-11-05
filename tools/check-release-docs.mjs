@@ -217,6 +217,7 @@ requirePhrases(
     'tokenGauge.providers.codex.nativeStatusProbe',
     'tokenGauge.display.cards.claude.visible',
     'tokenGauge.display.cards.codex.visible',
+    'tokenGauge.display.showProvenanceFooter',
     'No cards visible',
     '`· Codex 42% weekly`',
     'Codex shows `off` only when the probe is disabled',

@@ -32,14 +32,16 @@ const NOOP = (): void => {};
 function SafeAgentCard({
   card,
   showTechnicalDetails,
+  showProvenanceFooter,
   callbacks,
 }: {
   readonly card: GaugeCardViewModel;
   readonly showTechnicalDetails: boolean;
+  readonly showProvenanceFooter: boolean;
   readonly callbacks: AgentCardCallbacks;
 }) {
   try {
-    return AgentCard({ card, showTechnicalDetails, callbacks });
+    return AgentCard({ card, showTechnicalDetails, showProvenanceFooter, callbacks });
   } catch {
     return (
       <article className="tg-card" role="status">
@@ -186,6 +188,7 @@ export function CockpitView({
   checkedLabel,
   refreshing = false,
   showTechnicalDetails = false,
+  showProvenanceFooter = true,
   cardVisibility = DEFAULT_PROVIDER_CARD_VISIBILITY,
 }: {
   readonly cards: readonly GaugeCardViewModel[];
@@ -206,6 +209,8 @@ export function CockpitView({
   readonly refreshing?: boolean;
   // Plumbed from tokenGauge.display.showTechnicalDetails. Default false → simple.
   readonly showTechnicalDetails?: boolean;
+  // Plumbed from tokenGauge.display.showProvenanceFooter. Default true → footer.
+  readonly showProvenanceFooter?: boolean;
   readonly cardVisibility?: ProviderCardVisibility;
 }) {
   const callbacks: AgentCardCallbacks = {
@@ -279,6 +284,7 @@ export function CockpitView({
                   key={cardKey(card, index)}
                   card={card}
                   showTechnicalDetails={showTechnicalDetails}
+                  showProvenanceFooter={showProvenanceFooter}
                   callbacks={callbacks}
                 />
               ))}
@@ -390,6 +396,7 @@ export function CockpitApp({
   const [refreshing, setRefreshing] = useState(false);
   const [displayConfig, setDisplayConfig] = useState<CockpitDisplayConfig>({
     showTechnicalDetails: false,
+    showProvenanceFooter: true,
     cardVisibility: DEFAULT_PROVIDER_CARD_VISIBILITY,
   });
 
@@ -437,6 +444,7 @@ export function CockpitApp({
       {...(checkedLabel !== undefined ? { checkedLabel } : {})}
       refreshing={refreshing}
       showTechnicalDetails={displayConfig.showTechnicalDetails}
+      showProvenanceFooter={displayConfig.showProvenanceFooter}
       cardVisibility={displayConfig.cardVisibility}
     />
   );

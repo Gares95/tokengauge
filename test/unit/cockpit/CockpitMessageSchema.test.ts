@@ -110,28 +110,48 @@ suite('CockpitMessage schemas', () => {
     assert.deepEqual(outboundTypes.sort(), ['buildInfo', 'displayConfig', 'gaugeCards']);
   });
 
-  // DisplayConfig carries only NON-SENSITIVE display booleans
-  // (technical details + provider card visibility). No path/secret/value may ride it.
+  // DisplayConfig carries only NON-SENSITIVE display booleans (technical details,
+  // the provenance footer, provider card visibility). No path/secret/value may ride it.
   test('Outbound displayConfig validates display-only booleans', () => {
     for (const showTechnicalDetails of [true, false]) {
-      const ok = CockpitOutboundMessageSchema.safeParse({
-        type: 'displayConfig',
-        showTechnicalDetails,
-        cardVisibility: { claude: true, codex: false },
-      });
-      assert.equal(ok.success, true);
+      for (const showProvenanceFooter of [true, false]) {
+        const ok = CockpitOutboundMessageSchema.safeParse({
+          type: 'displayConfig',
+          showTechnicalDetails,
+          showProvenanceFooter,
+          cardVisibility: { claude: true, codex: false },
+        });
+        assert.equal(ok.success, true);
+      }
     }
 
     const nonBool = CockpitOutboundMessageSchema.safeParse({
       type: 'displayConfig',
       showTechnicalDetails: 'yes',
+      showProvenanceFooter: true,
       cardVisibility: { claude: true, codex: true },
     });
     assert.equal(nonBool.success, false);
 
+    const nonBoolFooter = CockpitOutboundMessageSchema.safeParse({
+      type: 'displayConfig',
+      showTechnicalDetails: false,
+      showProvenanceFooter: 'hidden',
+      cardVisibility: { claude: true, codex: true },
+    });
+    assert.equal(nonBoolFooter.success, false);
+
+    const missingFooter = CockpitOutboundMessageSchema.safeParse({
+      type: 'displayConfig',
+      showTechnicalDetails: false,
+      cardVisibility: { claude: true, codex: true },
+    });
+    assert.equal(missingFooter.success, false, 'the host always states the footer posture');
+
     const nonBoolVisibility = CockpitOutboundMessageSchema.safeParse({
       type: 'displayConfig',
       showTechnicalDetails: false,
+      showProvenanceFooter: true,
       cardVisibility: { claude: true, codex: 'hidden' },
     });
     assert.equal(nonBoolVisibility.success, false);
@@ -139,6 +159,7 @@ suite('CockpitMessage schemas', () => {
     const extra = CockpitOutboundMessageSchema.safeParse({
       type: 'displayConfig',
       showTechnicalDetails: false,
+      showProvenanceFooter: true,
       cardVisibility: { claude: true, codex: true },
       path: '/home/dev/.claude',
     });

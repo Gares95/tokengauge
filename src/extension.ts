@@ -478,6 +478,11 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
     showTechnicalDetails: (): boolean =>
       (configService as ConfigService).snapshot()['tokenGauge.display.showTechnicalDetails'] ===
       true,
+    // The provenance footer is visible unless the user explicitly set false;
+    // an unset or malformed value keeps the default footer.
+    showProvenanceFooter: (): boolean =>
+      (configService as ConfigService).snapshot()['tokenGauge.display.showProvenanceFooter'] !==
+      false,
     cardVisibility: () => {
       const snapshot = (configService as ConfigService).snapshot();
       return resolveProviderCardVisibility({
@@ -675,6 +680,7 @@ export function activate(context: vscode.ExtensionContext): TokenGaugeTestApi | 
   // a deliberate both-hidden empty state from the first-run welcome.
   const COCKPIT_DISPLAY_CONFIG_KEYS = [
     'tokenGauge.display.showTechnicalDetails',
+    'tokenGauge.display.showProvenanceFooter',
     'tokenGauge.display.cards.claude.visible',
     'tokenGauge.display.cards.codex.visible',
   ] as const satisfies readonly (keyof EffectiveConfig)[];
