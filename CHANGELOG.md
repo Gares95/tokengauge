@@ -6,6 +6,10 @@ to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ## [Unreleased]
 
+### Security
+
+- Updated the bundled `zod` dependency from 4.4.3 to 4.6.7 to resolve GHSA-mrhx-c7xc-m3w5, a high-severity advisory in which validating oversized size-constrained collections can exhaust memory.
+
 ## [0.0.5] - 2026-09-04
 
 ### Added
