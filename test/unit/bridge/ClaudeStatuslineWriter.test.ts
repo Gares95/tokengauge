@@ -14,6 +14,7 @@ import {
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { ClaudeStatuslineSnapshotSchema } from '../../../src/bridge/ClaudeStatuslineSnapshotSchema';
+import { buildGaugeCardViewModels } from '../../../src/cockpit/GaugeCardViewModel';
 import { readSnapshotDirectoryCandidate } from '../../../src/core/cockpit/readSnapshotDirectory';
 import { readStatuslineSnapshotCandidate } from '../../../src/core/cockpit/readStatuslineSnapshot';
 import { IdHasher } from '../../../src/security/IdHasher';
@@ -155,23 +156,33 @@ suite('Claude statusLine writer: the shipped dist asset', () => {
   });
 });
 
+// Runs the writer once on the fixture payload with the given rate_limits and
+// returns its status line together with the raw snapshot text it wrote.
+function runWithRateLimits(
+  rateLimits: unknown,
+  modelId = 'claude-opus-4-1',
+): { readonly line: string; readonly snapshotText: string } {
+  const dir = tempDir();
+  try {
+    const output = path.join(dir, 'snapshot.json');
+    const input = JSON.stringify({
+      ...payloadObject,
+      model: { id: modelId, display_name: 'Display Name' },
+      rate_limits: rateLimits,
+    });
+    const result = runWriter(['--file', output], input);
+    assert.equal(result.status, 0, result.stderr);
+    return { line: result.stdout, snapshotText: readFileSync(output, 'utf8') };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 suite('Claude statusLine canonical writer: status line output', () => {
   // Session-local values would make the line differ between concurrent sessions
   // and would imply the account-level percentages belong to one session.
   function statusLineFor(rateLimits: unknown, modelId = 'claude-opus-4-1'): string {
-    const dir = tempDir();
-    try {
-      const input = JSON.stringify({
-        ...payloadObject,
-        model: { id: modelId, display_name: 'Display Name' },
-        rate_limits: rateLimits,
-      });
-      const result = runWriter(['--file', path.join(dir, 'snapshot.json')], input);
-      assert.equal(result.status, 0, result.stderr);
-      return result.stdout;
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    return runWithRateLimits(rateLimits, modelId).line;
   }
 
   test('both windows render as account-level percentages, each window named', () => {
@@ -261,6 +272,146 @@ suite('Claude statusLine canonical writer: status line output', () => {
     assert.notEqual(result.status, 0, 'must not report success');
     assert.equal(result.stdout, '', 'no status line on failure');
     assertPrivateErrorAbsent(result.stderr);
+  });
+});
+
+// Claude Code reports used_percentage as a JSON number that can carry binary
+// floating-point noise. The status line shows whole percentages, rounded exactly
+// as the cockpit card and status bar round them; the snapshot keeps the value as
+// reported, so the cockpit and diagnostics still see the native measurement.
+suite('Claude statusLine canonical writer: percentage formatting', () => {
+  const statusLineForWindows = (rateLimits: unknown): string => runWithRateLimits(rateLimits).line;
+
+  test('floating-point artifacts render as whole percentages', () => {
+    const { line } = runWithRateLimits({
+      five_hour: { used_percentage: 28.000000000000004 },
+      seven_day: { used_percentage: 14.000000000000002 },
+    });
+    assert.equal(line, '28% 5h · 14% wk\n');
+    assert.ok(!/\d\.\d/.test(line), 'no decimal digits reach the status line');
+  });
+
+  test('the snapshot keeps the reported value at full precision', () => {
+    const { snapshotText } = runWithRateLimits({
+      five_hour: { used_percentage: 28.000000000000004 },
+      seven_day: { used_percentage: 14.000000000000002 },
+    });
+    const snapshot = JSON.parse(snapshotText) as {
+      rate_limits: {
+        five_hour: { used_percentage: number };
+        seven_day: { used_percentage: number };
+      };
+    };
+    assert.equal(snapshot.rate_limits.five_hour.used_percentage, 28.000000000000004);
+    assert.equal(snapshot.rate_limits.seven_day.used_percentage, 14.000000000000002);
+  });
+
+  test('integer percentages are unchanged', () => {
+    assert.equal(
+      statusLineForWindows({
+        five_hour: { used_percentage: 7 },
+        seven_day: { used_percentage: 50 },
+      }),
+      '7% 5h · 50% wk\n',
+    );
+  });
+
+  // 0 and 100 are real values, not absences. Fractions round to the nearest
+  // whole percent with halves rounding up, the same rule the cockpit applies.
+  test('boundaries render as whole percentages', () => {
+    const cases: ReadonlyArray<readonly [number, number, string]> = [
+      [0, 100, '0% 5h · 100% wk\n'],
+      [0.4, 99.4, '0% 5h · 99% wk\n'],
+      [0.5, 99.5, '1% 5h · 100% wk\n'],
+      [41.5, 99.6, '42% 5h · 100% wk\n'],
+      [1e-12, 99.99999999999999, '0% 5h · 100% wk\n'],
+    ];
+    for (const [fiveHour, weekly, expected] of cases) {
+      assert.equal(
+        statusLineForWindows({
+          five_hour: { used_percentage: fiveHour },
+          seven_day: { used_percentage: weekly },
+        }),
+        expected,
+        `5h ${fiveHour}, weekly ${weekly}`,
+      );
+    }
+  });
+
+  // An unavailable window is omitted. It never renders as 0%, NaN, or a raw
+  // non-number, and out-of-range values never reach the line.
+  test('unavailable values are omitted, never formatted', () => {
+    const cases: ReadonlyArray<readonly [unknown, string]> = [
+      [
+        { five_hour: { used_percentage: null }, seven_day: { used_percentage: '14' } },
+        'no limit fields yet\n',
+      ],
+      [{ five_hour: { resets_at: 1781110800 }, seven_day: {} }, 'no limit fields yet\n'],
+      [
+        { five_hour: { used_percentage: 101 }, seven_day: { used_percentage: 14.000000000000002 } },
+        '14% wk\n',
+      ],
+      [
+        { five_hour: { used_percentage: 28.000000000000004 }, seven_day: { used_percentage: -1 } },
+        '28% 5h\n',
+      ],
+      [{ five_hour: { used_percentage: true } }, 'no limit fields yet\n'],
+    ];
+    for (const [rateLimits, expected] of cases) {
+      const line = statusLineForWindows(rateLimits);
+      assert.equal(line, expected, JSON.stringify(rateLimits));
+      for (const forbidden of ['NaN', 'undefined', 'null', 'true', '-1', '101']) {
+        assert.ok(!line.includes(forbidden), `status line must not carry ${forbidden}`);
+      }
+    }
+  });
+
+  // The terminal line and the cockpit card read the same snapshot, so they must
+  // agree on every number. This runs the real reader and card view model.
+  test('the line shows the same number as the cockpit card for the same snapshot', () => {
+    const resetsAt = Math.floor(Date.now() / 1000) + 3600;
+    const pairs: ReadonlyArray<readonly [number, number]> = [
+      [28.000000000000004, 14.000000000000002],
+      [0, 100],
+      [0.4, 99.6],
+      [0.5, 99.5],
+      [41.5, 12],
+    ];
+    for (const [fiveHour, weekly] of pairs) {
+      const dir = tempDir();
+      try {
+        const output = path.join(dir, 'snapshot.json');
+        const input = JSON.stringify({
+          ...payloadObject,
+          rate_limits: {
+            five_hour: { used_percentage: fiveHour, resets_at: resetsAt },
+            seven_day: { used_percentage: weekly, resets_at: resetsAt },
+          },
+        });
+        const result = runWriter(['--file', output], input);
+        assert.equal(result.status, 0, result.stderr);
+
+        const reader = readStatuslineSnapshotCandidate(output, {
+          readFile: (file) => readFileSync(file, 'utf8'),
+          hasher,
+          now: () => new Date(),
+        });
+        assert.ok(reader.candidate, 'the reader loads the snapshot');
+        const [card] = buildGaugeCardViewModels({
+          candidates: [reader.candidate],
+          configuredAgents: ['claude-code'],
+          now: () => new Date(),
+        });
+        assert.ok(card, 'the Claude card exists');
+        assert.equal(
+          result.stdout,
+          `${card.session.usedPct}% 5h · ${card.weekly.usedPct}% wk\n`,
+          `5h ${fiveHour}, weekly ${weekly}`,
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
   });
 });
 

@@ -12,6 +12,25 @@ to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
   (previously 320px). Card layout, text sizes, and wrapping are unchanged; below
   256px the view still scrolls horizontally instead of compressing the cards.
 
+### Fixed
+
+- The Claude statusLine writer now prints whole percentages in Claude Code's
+  status line, for example `28% 5h · 14% wk` instead of
+  `28.000000000000004% 5h · 14.000000000000002% wk`. It rounds the same way the
+  cockpit card and status bar do, so all three show the same number. The
+  snapshot still stores each value exactly as Claude Code reported it.
+
+### Migration notes
+
+- Updating the extension does not update a statusLine writer that is already
+  on your machine; Claude Code keeps running your existing copy. To get the
+  percentage fix, run **TokenGauge: Set Up Claude statusLine** again, or replace
+  your local writer with the current copy from
+  [docs/claude-statusline-writer.md](docs/claude-statusline-writer.md).
+- If you use directory mode (`--dir`) or keep the writer at a custom path,
+  replace the writer file by hand instead. Re-running the setup command points
+  `tokenGauge.claude.statuslineSnapshotPath` back at the single snapshot file.
+
 ## [0.0.5] - 2026-09-04
 
 ### Added

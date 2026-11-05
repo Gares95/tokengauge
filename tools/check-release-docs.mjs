@@ -269,6 +269,20 @@ forbidPhrases(
   'stale-statusline-freshness-guidance',
 );
 
+// missing-writer-update-guidance: the writer runs from a COPY on the user's
+// machine, so an extension update never reaches it. The writer doc must keep
+// telling users how to refresh that copy, including the caveat that re-running
+// the setup command resets the snapshot path to the single-file default.
+requirePhrases(
+  'docs/claude-statusline-writer.md',
+  [
+    'Updating TokenGauge does not update a writer that is already on your machine',
+    'run **TokenGauge: Set Up Claude statusLine** again',
+    'points `tokenGauge.claude.statuslineSnapshotPath` back at the single snapshot file',
+  ],
+  'missing-writer-update-guidance',
+);
+
 {
   // The writer body lives in docs/claude-statusline-writer.md, not the README:
   // the README is the packaged Marketplace listing and the body is ~260 lines of

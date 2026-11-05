@@ -201,9 +201,15 @@ async function readStdin() {
 
 // A window contributes a part only when it carries a real percentage. A window
 // Claude Code did not report is omitted, never rendered as 0%.
+//
+// Claude Code reports used_percentage as a JSON number that can carry binary
+// floating-point noise, such as 28.000000000000004. The line shows whole
+// percentages, rounded the same way the TokenGauge cockpit card and status bar
+// round them, so every surface shows the same number. Only this text is
+// rounded: the snapshot keeps the value exactly as Claude Code reported it.
 function windowPart(window, label) {
   const used = window?.used_percentage;
-  return typeof used === 'number' ? `${used}% ${label}` : undefined;
+  return typeof used === 'number' ? `${Math.round(used)}% ${label}` : undefined;
 }
 
 // Claude Code reports rate_limits only for Claude.ai subscription sessions, and

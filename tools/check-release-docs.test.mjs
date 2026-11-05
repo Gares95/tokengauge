@@ -40,6 +40,10 @@ function cleanDocs() {
       'The timestamp records when the writer sanitized and wrote the snapshot. ' +
       'It does not prove that the provider limits changed. ' +
       'Do not enable Claude Code `statusLine.refreshInterval` only to make TokenGauge appear fresher unless the snapshot schema can distinguish source capture time from writer time.\n\n' +
+      '## Updating the writer\n' +
+      'Updating TokenGauge does not update a writer that is already on your machine. ' +
+      'Run **TokenGauge: Set Up Claude statusLine** again. Re-running it ' +
+      'points `tokenGauge.claude.statuslineSnapshotPath` back at the single snapshot file.\n\n' +
       '## WSL, Linux, macOS, or Git Bash\n' +
       'Use this block in Bash-like shells only. It is not PowerShell syntax. ' +
       "mkdir -p ~/.tokengauge/claude\ncat > ~/.tokengauge/claude/claude-statusline-writer.mjs <<'TOKENGAUGE_STATUSLINE'\n" +
@@ -767,6 +771,43 @@ runFixture(
     assert(
       result.output.includes('missing-statusline-freshness-guidance'),
       'expected missing-statusline-freshness-guidance rule',
+    );
+  },
+);
+
+// The writer runs from a copy on the user's machine; the writer doc must keep
+// explaining that an extension update does not refresh it.
+runFixture(
+  'missing-writer-update-guidance',
+  (docs) => {
+    docs['docs/claude-statusline-writer.md'] = docs['docs/claude-statusline-writer.md'].replace(
+      'Updating TokenGauge does not update a writer that is already on your machine. ',
+      '',
+    );
+  },
+  (result) => {
+    assert(result.status !== 0, 'writer doc without update guidance should fail');
+    assert(
+      result.output.includes('missing-writer-update-guidance'),
+      'expected missing-writer-update-guidance rule',
+    );
+    assert(!result.output.includes('already on your machine'), 'gate output must not echo docs');
+  },
+);
+
+runFixture(
+  'missing-writer-update-dir-caveat',
+  (docs) => {
+    docs['docs/claude-statusline-writer.md'] = docs['docs/claude-statusline-writer.md'].replace(
+      'points `tokenGauge.claude.statuslineSnapshotPath` back at the single snapshot file',
+      'updates the setting',
+    );
+  },
+  (result) => {
+    assert(result.status !== 0, 'writer doc without the directory-mode caveat should fail');
+    assert(
+      result.output.includes('missing-writer-update-guidance'),
+      'expected missing-writer-update-guidance rule',
     );
   },
 );

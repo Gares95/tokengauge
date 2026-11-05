@@ -44,6 +44,24 @@ not prove that the provider limits changed at that instant. Do not enable Claude
 Code `statusLine.refreshInterval` only to make TokenGauge appear fresher unless
 the snapshot schema can distinguish source capture time from writer time.
 
+## Updating the writer
+
+Updating TokenGauge does not update a writer that is already on your machine.
+Claude Code runs the copy your `statusLine.command` points at, not the writer
+inside the extension, so writer fixes reach you only when you replace that copy:
+
+- If the setup command created your writer and you use the single snapshot file
+  it configured, run **TokenGauge: Set Up Claude statusLine** again. It
+  overwrites `~/.tokengauge/claude/claude-statusline-writer.mjs` with the
+  current writer.
+- If you use directory mode (`--dir`) or keep the writer at a custom path,
+  replace the file your `statusLine.command` runs with the body below, then run
+  `node --check` on it. Re-running the setup command in that case points
+  `tokenGauge.claude.statuslineSnapshotPath` back at the single snapshot file,
+  which no longer matches your `--dir` command.
+
+Your `statusLine.command` stays the same either way.
+
 ## WSL, Linux, macOS, or Git Bash
 
 Use this block in Bash-like shells only. It is not PowerShell syntax.
@@ -255,9 +273,15 @@ async function readStdin() {
 
 // A window contributes a part only when it carries a real percentage. A window
 // Claude Code did not report is omitted, never rendered as 0%.
+//
+// Claude Code reports used_percentage as a JSON number that can carry binary
+// floating-point noise, such as 28.000000000000004. The line shows whole
+// percentages, rounded the same way the TokenGauge cockpit card and status bar
+// round them, so every surface shows the same number. Only this text is
+// rounded: the snapshot keeps the value exactly as Claude Code reported it.
 function windowPart(window, label) {
   const used = window?.used_percentage;
-  return typeof used === 'number' ? `${used}% ${label}` : undefined;
+  return typeof used === 'number' ? `${Math.round(used)}% ${label}` : undefined;
 }
 
 // Claude Code reports rate_limits only for Claude.ai subscription sessions, and
