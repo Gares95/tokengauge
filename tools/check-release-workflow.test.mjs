@@ -158,6 +158,18 @@ runFixture(
   },
 );
 
+// The release workflow may not run on a schedule or on manual dispatch either.
+// Verification workflows may (see Test 12); this ban is release-workflow only.
+for (const [label, trigger] of [
+  ['schedule-trigger', "  schedule:\n    - cron: '37 4 * * 1'\n"],
+  ['workflow-dispatch-trigger', '  workflow_dispatch:\n'],
+]) {
+  runFixture(label, GOOD.replace('on:\n  push:', `on:\n${trigger}  push:`), (result) => {
+    assert(result.status === 1, `${label} on the release workflow should fail`);
+    assert(result.output.includes('[trigger-not-tag-only]'), 'expected trigger-not-tag-only rule');
+  });
+}
+
 runFixture(
   'missing-tag-trigger',
   GOOD.replace("    tags:\n      - 'v*'", '    branches:\n      - main'),
@@ -301,6 +313,36 @@ runRootFixture(
   },
   (result) => {
     assert(result.status === 0, `commented mentions should not trip the scan:\n${result.output}`);
+  },
+);
+
+// Test 12: schedule and workflow_dispatch on a verification workflow do not
+// trip deferred-release mode, and they do not relax it: a scheduled verify
+// workflow that gains a publish-capable step still fails.
+const VERIFY_SCHEDULED = VERIFY_ONLY.replace(
+  '      - main\n',
+  "      - main\n  schedule:\n    - cron: '37 4 * * 1'\n  workflow_dispatch:\n",
+);
+assert(VERIFY_SCHEDULED !== VERIFY_ONLY, 'scheduled verify fixture must differ from VERIFY_ONLY');
+runRootFixture(
+  'deferred-verify-scheduled-dispatch',
+  { '.github/workflows/verify.yml': VERIFY_SCHEDULED },
+  (result) => {
+    assert(result.status === 0, `scheduled verify-only root should pass, got:\n${result.output}`);
+    assert(result.output.includes('deferred'), 'expected deferred-mode OK message');
+  },
+);
+runRootFixture(
+  'deferred-verify-scheduled-publish-capable',
+  {
+    '.github/workflows/verify.yml': `${VERIFY_SCHEDULED}      - run: gh release create "$GITHUB_REF_NAME"\n`,
+  },
+  (result) => {
+    assert(result.status === 1, 'scheduled verify workflow with a publish step should fail');
+    assert(
+      result.output.includes('[publish-capable-workflow-without-release-gate]'),
+      'expected publish-capable-workflow-without-release-gate rule',
+    );
   },
 );
 
