@@ -8,7 +8,7 @@ to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ### Security
 
-- Updated the bundled `zod` dependency from 4.4.3 to 4.6.7 to resolve GHSA-mrhx-c7xc-m3w5, a high-severity advisory in which validating oversized size-constrained collections can exhaust memory.
+- Updated the bundled `zod` dependency from 4.4.3 to 4.6.7 to resolve GHSA-mrhx-c7xc-m3w5, a high-severity advisory in which validating a large array against an array schema without a length constraint can exhaust memory, because zod keeps every validation issue for each failing element. TokenGauge validates no untrusted input with an array schema, so the vulnerable path is not reachable in this extension.
 
 ## [0.0.5] - 2026-09-04
 
