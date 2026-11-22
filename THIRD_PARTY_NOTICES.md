@@ -91,7 +91,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## zod 4.4.3
+## zod 4.6.7
 
 - Source: https://github.com/colinhacks/zod
 - License: MIT
