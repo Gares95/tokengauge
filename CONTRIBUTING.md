@@ -24,11 +24,20 @@ or direct `test:*` labels). For final local validation, run `npm run check` and
 `npm test` immediately before it duplicates the three extension-host launches
 unless you are gathering separate timing or debugging a test failure.
 
-`npm run check` is the authoritative local aggregate gate. PR CI runs core
-validation as explicit workflow steps instead of invoking that script directly,
-so local behavior can look different from CI even when coverage intent is the
-same. If a gate disagrees with your code, the gate wins. Fix the code, do not
-bypass the gate. Never use `--no-verify` or any hook bypass.
+`npm run check` is the authoritative aggregate gate, and CI runs that same
+script. The Verify workflow runs it on Ubuntu, macOS, and Windows for every pull
+request, every push to `main`, once a week on a schedule, and on demand from the
+Actions tab. Around it, CI also runs the runtime `npm audit` and the
+packaged-VSIX build and content audit, which `npm run check` does not include.
+If a gate disagrees with your code, the gate wins. Fix the code, do not bypass
+the gate. Never use `--no-verify` or any hook bypass.
+
+The weekly run re-verifies `main` when no pull request or push would. VS Code
+stable, the CI runner images, and the npm advisory database all change without a
+commit here, so a red scheduled run on an unchanged `main` usually means outside
+drift rather than a code regression. GitHub disables scheduled workflows in
+public repositories after 60 days without activity; if the weekly runs stop,
+re-enable the workflow from the Actions tab.
 
 ### Local VS Code test windows
 
@@ -54,12 +63,12 @@ tests from `out/`, so they run a stale-output guard first; if it reports missing
 or stale output, run `npm run clean && npm run compile-tests` before retrying the
 direct label.
 
-CI runs the same extension-host labels (`unit`, `privacy`, and `integration`) as
-explicit workflow steps on Ubuntu, macOS, and Windows. Linux CI wraps those
-labels in `xvfb-run`; local managed/sandboxed terminals may need host execution
-if VS Code startup fails with a `/run/user` socket or read-only filesystem error.
-Treat that as an environment issue and rerun the same command from a normal host
-terminal instead of skipping tests.
+CI runs the same extension-host labels (`unit`, `privacy`, and `integration`)
+through `npm run check` on Ubuntu, macOS, and Windows. Linux CI wraps the whole
+`npm run check` in `xvfb-run`. Local managed/sandboxed terminals may need host
+execution if VS Code startup fails with a `/run/user` socket or read-only
+filesystem error. Treat that as an environment issue and rerun the same command
+from a normal host terminal instead of skipping tests.
 
 ## Privacy rules
 
